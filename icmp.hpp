@@ -3,6 +3,40 @@
 
 typedef enum
 {
+  ICMP_TYPE_ECHO_REPLY                = 0,
+  /* 1-2 reserved */
+  ICMP_TYPE_DESTINATION_UNREACHABLE   = 3,
+  ICMP_TYPE_SOURCE_QUENCH             = 4,
+  ICMP_TYPE_REDIRECT_MESSAGE          = 5,
+  /* 6 deprecated */
+  /* 7 reserved */
+  ICMP_TYPE_ECHO_REQUEST              = 8,
+  ICMP_TYPE_ROUTER_ADVERTISEMENT      = 9,
+  ICMP_TYPE_ROUTER_SOLICITATION       = 10,
+  ICMP_TYPE_TIME_EXCEEDED             = 11,
+  ICMP_TYPE_PARAMETER_PROBLEM         = 12,
+  ICMP_TYPE_TIMESTAMP                 = 13,
+  ICMP_TYPE_TIMESTAMP_REPLY           = 14,
+  ICMP_TYPE_INFORMATION_REQUEST       = 15,
+  ICMP_TYPE_INFORMATION_REPLY         = 16,
+  ICMP_TYPE_ADDRESS_MASK_REQUEST      = 17,
+  ICMP_TYPE_ADDRESS_MASK_REPLY        = 18,
+  /* 19 reserved for security */
+  /* 20-29 reserved for robustness experiment */
+  ICMP_TYPE_TRACEROUTE                = 30,
+  /* 31-39 deprecated */
+  ICMP_TYPE_PHOTURIS_SECURITY_FAILURE = 40,
+  /* 41 experimental */
+  ICMP_TYPE_EXTENDED_ECHO_REQUEST     = 42,
+  ICMP_TYPE_EXTENDED_ECHO_REPLY       = 43,
+  /* 44-252 reserved */
+  /* 253-254 experimental */
+  /* 255 reserved */
+
+} icmp_type_e;
+
+typedef enum
+{
   ICMP_CODE_ZERO                                      = 0,
   
   /* Destination Unreachable */
@@ -33,7 +67,7 @@ typedef enum
   ICMP_CODE_TTL_EXPIRED_IN_TRANSIT                    = 0,
   ICMP_CODE_FRAGMENT_REASSEMBLY_TIME_EXCEEDED         = 1,
 
-  /* Bad IP Header */
+  /* Parameter Problem: Bad IP Header */
   ICMP_CODE_POINTER_INDICATES_THE_ERROR               = 0,
   ICMP_CODE_MISSING_A_REQUIRED_OPTION                 = 1,
   ICMP_CODE_BAD_LENGTH                                = 2,
@@ -62,7 +96,7 @@ typedef union __attribute__((packed))
 
 typedef struct __attribute__((packed))
 {
-  uint8_t               type;
+  icmp_type_e           type:8;
   icmp_code_e           code_enum:8;
   uint16_t              checksum;
 
