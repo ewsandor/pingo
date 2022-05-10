@@ -4,8 +4,6 @@
 
 #include "ipv4.hpp"
 
-#define IPV4_BYTE_SIZE_TO_WORD_SIZE(byte_size) (byte_size/sizeof(ipv4_word_t))
-
 bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv4_header_s * output_header)
 {
   bool         ret_val = true;
@@ -18,7 +16,7 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     memset(output_header, 0, sizeof(ipv4_header_s));
   }
   
-  if(buffer && output_header && (IPV4_BYTE_SIZE_TO_WORD_SIZE(buffer_size) >= 5))
+  if(buffer && output_header && (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size) >= 5))
   {
     host_word = ntohl(buffer[0]);
     computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
@@ -46,7 +44,7 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
 
     for(i = 5; i < output_header->ihl; i++)
     {
-      if(i < IPV4_BYTE_SIZE_TO_WORD_SIZE(buffer_size))
+      if(i < BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size))
       {
         host_word = ntohl(buffer[i]);
         computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
@@ -71,4 +69,20 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
   }
 
   return (ret_val?(0xFFFF==computed_checksum):false);
+}
+
+ipv4_word_size_t get_ipv4_header_size(const ipv4_header_s* ipv4_header)
+{
+  ipv4_word_size_t ret_val = 0;
+
+  if(ipv4_header)
+  {
+    return ipv4_header->ihl;
+  }
+  else
+  {
+    fprintf(stderr, "Invalid ipv4_header");
+  }
+
+  return ret_val;
 }
