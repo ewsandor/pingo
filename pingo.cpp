@@ -34,7 +34,10 @@ int main(int argc, char *argv[])
   while(1)
   {
     memset(&buffer, 0, sizeof(buffer));
+
     ipv4_header_s ipv4_header;
+    icmp_header_s icmp_header;
+
     recv(sockfd, &buffer, sizeof(buffer), 0);
 
     parse_ipv4_header(buffer, sizeof(buffer), &ipv4_header);
