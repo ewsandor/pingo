@@ -32,7 +32,7 @@ typedef struct __attribute__((packed))
 
 int main(int argc, char *argv[])
 {
-  int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+  int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
   if(sockfd == -1)
   {
     switch(errno)
@@ -84,16 +84,14 @@ int main(int argc, char *argv[])
     computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
     ipv4_header.dest_ip         = host_word;
 
-    if(ipv4_header.ihl > 5)
+    unsigned int i;
+    for(i = 5; i < ipv4_header.ihl; i++)
     {
-      unsigned int i;
-      for(i = 5; i < ipv4_header.ihl; i++)
-      {
-        host_word = ntohl(buffer[i]);
-        computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
-        ipv4_header.options[i] = host_word;
-      }
+      host_word = ntohl(buffer[i]);
+      computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
+      ipv4_header.options[i] = host_word;
     }
+
     computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
 
     printf("source 0x%x destination 0x%x identification 0x%x checksum 0x%x computed_checksum 0x%x\n", 
