@@ -15,7 +15,7 @@ typedef enum
   ICMP_TYPE_ROUTER_SOLICITATION       = 10,
   ICMP_TYPE_TIME_EXCEEDED             = 11,
   ICMP_TYPE_PARAMETER_PROBLEM         = 12,
-  ICMP_TYPE_TIMESTAMP                 = 13,
+  ICMP_TYPE_TIMESTAMP_REQUEST         = 13,
   ICMP_TYPE_TIMESTAMP_REPLY           = 14,
   ICMP_TYPE_INFORMATION_REQUEST       = 15,
   ICMP_TYPE_INFORMATION_REPLY         = 16,
@@ -86,12 +86,25 @@ typedef struct __attribute__((packed))
   uint16_t identifier;
   uint16_t sequence_number;
   
-} icmp_rest_of_header_echo_s;
+} icmp_rest_of_header_id_seq_num_s;
+
+typedef uint32_t icmp_ip_address_t;
+
+typedef struct __attribute__((packed))
+{
+  uint16_t unused;
+  uint16_t next_hop_mtu;
+  
+} icmp_rest_of_header_dest_unreachable_s;
 
 typedef union __attribute__((packed))
 {
-  icmp_rest_of_header_echo_s echo;
-
+  uint32_t                               unused;
+  icmp_rest_of_header_id_seq_num_s       echo;
+  icmp_rest_of_header_id_seq_num_s       timestamp;
+  icmp_rest_of_header_id_seq_num_s       address_mask;
+  icmp_ip_address_t                      redirect;
+  icmp_rest_of_header_dest_unreachable_s dest_unreachable;
 } icmp_rest_of_header_u;
 
 typedef struct __attribute__((packed))
