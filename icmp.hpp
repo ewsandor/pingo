@@ -86,11 +86,11 @@ typedef struct __attribute__((packed))
   uint16_t identifier;
   uint16_t sequence_number;
   
-} icmp_rest_of_header_request_reply_s;
+} icmp_rest_of_header_echo_s;
 
 typedef union __attribute__((packed))
 {
-  icmp_rest_of_header_request_reply_s request_reply;
+  icmp_rest_of_header_echo_s echo;
 
 } icmp_rest_of_header_u;
 
