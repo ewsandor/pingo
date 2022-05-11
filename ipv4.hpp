@@ -28,6 +28,24 @@ typedef struct __attribute__((packed))
 
 } ipv4_header_s;
 
+typedef struct 
+{
+  /* Raw buffer for IPv4 packet. Assumed to be in network big-endian format. */
+  const ipv4_word_t *buffer;
+  ipv4_word_size_t   buffer_size;
+  
+  /* Header is valid if the buffer has been parsed successfully and checksum was correct */
+  bool               header_valid;
+  ipv4_header_s      header;
+
+  /* Pointer to payload after the IPv4 header from buffer. Assumed to be in network big-endian format. */
+  const ipv4_word_t *payload;
+  /* Size of the payload.  
+      Based on buffer size (buffer_size-header.ihl), not the total length from the IPv4 header. */
+  ipv4_word_size_t   payload_size;
+
+} ipv4_packet_meta_s;
+
 #define BYTE_SIZE_TO_IPV4_WORD_SIZE(byte_size) (byte_size/sizeof(ipv4_word_t))
 #define IPV4_WORD_SIZE_TO_BYTE_SIZE(word_size) (word_size*sizeof(ipv4_word_t))
 
