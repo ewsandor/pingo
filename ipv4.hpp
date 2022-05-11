@@ -32,7 +32,8 @@ typedef struct
 {
   /* Raw buffer for IPv4 packet. Assumed to be in network big-endian format. */
   const ipv4_word_t *buffer;
-  ipv4_word_size_t   buffer_size;
+  /* Size of raw buffer in bytes */
+  size_t             buffer_size;
   
   /* Header is valid if the buffer has been parsed successfully and checksum was correct */
   bool               header_valid;
@@ -42,7 +43,7 @@ typedef struct
   const ipv4_word_t *payload;
   /* Size of the payload.  
       Based on buffer size (buffer_size-header.ihl), not the total length from the IPv4 header. */
-  ipv4_word_size_t   payload_size;
+  ipv4_word_size_t   payload_word_size;
 
 } ipv4_packet_meta_s;
 
@@ -51,6 +52,9 @@ typedef struct
 
 /* Parses ipv4 header from raw buffer */
 bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t, ipv4_header_s * output_header);
+
+/* Parses IPv4 packet.  Returns metadata structure for packet. */
+ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t);
 
 /* Returns the size of the ipv4 header in words.  May be used to find offset to payload.  
     Assumes header is valid. Returns 0 in case of error*/

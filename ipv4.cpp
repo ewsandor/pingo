@@ -1,15 +1,16 @@
 #include <arpa/inet.h>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 
 #include "ipv4.hpp"
 
 bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv4_header_s * output_header)
 {
-  bool         ret_val = true;
-  unsigned int i;
-  uint16_t     computed_checksum = 0;
-  ipv4_word_t  host_word;
+  bool          ret_val = true;
+  unsigned int  i;
+  uint_fast32_t computed_checksum = 0;
+  ipv4_word_t   host_word;
 
   if(output_header)
   {
@@ -60,6 +61,12 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     }
 
     computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
+
+    if(0xFFFF != computed_checksum)
+    {
+      fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%x\n", computed_checksum);
+      ret_val = false;
+    }
   }
   else
   {
@@ -68,7 +75,29 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     ret_val = false;
   }
 
-  return (ret_val?(0xFFFF==computed_checksum):false);
+  return ret_val;
+}
+
+ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t buffer_size)
+{
+  ipv4_packet_meta_s packet_meta = {0};
+
+  if(buffer)
+  {
+    packet_meta.buffer      = buffer;
+    packet_meta.buffer_size = buffer_size;
+
+    packet_meta.header_valid = parse_ipv4_header(buffer, buffer_size, &packet_meta.header);
+
+    if(packet_meta.header_valid && 
+      (packet_meta.header.ihl < BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)))
+    {
+      packet_meta.payload           = &buffer[packet_meta.header.ihl];
+      packet_meta.payload_word_size = (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)-packet_meta.header.ihl);
+    }
+  }
+
+  return packet_meta;
 }
 
 ipv4_word_size_t get_ipv4_header_size(const ipv4_header_s* ipv4_header)

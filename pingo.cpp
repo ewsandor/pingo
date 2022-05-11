@@ -35,14 +35,17 @@ int main(int argc, char *argv[])
   {
     memset(&buffer, 0, sizeof(buffer));
 
-    ipv4_header_s ipv4_header;
-    icmp_header_s icmp_header;
+    ipv4_packet_meta_s ipv4_packet_meta;
+    icmp_header_s      icmp_header;
 
     recv(sockfd, &buffer, sizeof(buffer), 0);
 
-    parse_ipv4_header(buffer, sizeof(buffer), &ipv4_header);
+    ipv4_packet_meta = parse_ipv4_packet(buffer, sizeof(buffer));
 
-    printf("src 0x%x dest 0x%x id 0x%x\n", 
-            ipv4_header.source_ip, ipv4_header.dest_ip, ipv4_header.identification);
+    printf("valid %u src 0x%x dest 0x%x id 0x%x\n", 
+            ipv4_packet_meta.header_valid,
+            ipv4_packet_meta.header.source_ip, 
+            ipv4_packet_meta.header.dest_ip, 
+            ipv4_packet_meta.header.identification);
   }
 }
