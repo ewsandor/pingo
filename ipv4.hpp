@@ -7,6 +7,9 @@
 typedef uint32_t     ipv4_word_t;
 typedef unsigned int ipv4_word_size_t;
 
+#define IPV4_MAX_PACKET_SIZE_BYTES 65535
+#define IPV4_MAX_PACKET_SIZE_WORDS ((IPV4_MAX_PACKET_SIZE_BYTES/sizeof(ipv4_word_size_t))+1)
+
 typedef struct __attribute__((packed))
 {
   uint8_t  version:4;

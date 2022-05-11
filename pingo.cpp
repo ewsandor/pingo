@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  ipv4_word_t buffer[1024];
+  ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
   while(1)
   {
@@ -41,12 +41,25 @@ int main(int argc, char *argv[])
     recv(sockfd, &buffer, sizeof(buffer), 0);
 
     ipv4_packet_meta = parse_ipv4_packet(buffer, sizeof(buffer));
-    icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
 
-    printf("valid %u src 0x%x dest 0x%x id 0x%x\n", 
+    printf("IPv4 valid %u src 0x%x dest 0x%x id 0x%x total_length %u ttl %u\n", 
             ipv4_packet_meta.header_valid,
             ipv4_packet_meta.header.source_ip, 
             ipv4_packet_meta.header.dest_ip, 
-            ipv4_packet_meta.header.identification);
+            ipv4_packet_meta.header.identification,
+            ipv4_packet_meta.header.total_length,
+            ipv4_packet_meta.header.ttl);
+
+    if(ipv4_packet_meta.header_valid)
+    {
+      icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
+      printf("ICMP valid %u type %u code %u id %u seq_num %u payload_size %lu\n", 
+              icmp_packet_meta.header_valid,
+              icmp_packet_meta.header.type, 
+              icmp_packet_meta.header.code, 
+              icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
+              icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
+              icmp_packet_meta.payload_size);
+    }
   }
 }
