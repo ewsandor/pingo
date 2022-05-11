@@ -52,7 +52,7 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
       }
       else
       {
-        fprintf(stderr, "IPv4 buffer too small for header with options.  buffer 0x%x, buffer_size %u, ihl %u\n",
+        fprintf(stderr, "IPv4 buffer too small for header with options.  buffer 0x%p, buffer_size %lu, ihl %d\n",
                  buffer, buffer_size, output_header->ihl);
         ret_val = false;
         break;
@@ -71,13 +71,13 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
 
     if(0xFFFF != computed_checksum)
     {
-      fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%x\n", computed_checksum);
+      fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%lx\n", computed_checksum);
       ret_val = false;
     }
   }
   else
   {
-    fprintf(stderr, "Bad IPv4 buffer inputs.  buffer 0x%x, buffer_size %u, output_header 0x%x\n",
+    fprintf(stderr, "Bad IPv4 buffer inputs.  buffer 0x%p, buffer_size %lu, output_header 0x%p\n",
             buffer, buffer_size, output_header);
     ret_val = false;
   }

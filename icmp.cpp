@@ -83,29 +83,29 @@ inline bool parse_icmp_header(const ipv4_payload_s* ipv4_payload, icmp_header_s 
           computed_checksum += ((host_word>>16) & 0xFF00);
           tmp_size -= 1;
         }
-     }
+      }
       if(tmp_size != 0)
       {
-        fprintf(stderr, "Failed to compute checksum for payload. tmp_size %u", tmp_size);
+        fprintf(stderr, "Failed to compute checksum for payload. tmp_size %lu", tmp_size);
         ret_val = false; 
       }
       computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
       if(0xFFFF != computed_checksum)
       {
-        fprintf(stderr, "ICMP checksum failed. computed_checksum 0x%x\n", computed_checksum);
+        fprintf(stderr, "ICMP checksum failed. computed_checksum 0x%lx\n", computed_checksum);
         ret_val = false;
       }
     }
     else
     {
-      fprintf(stderr, "IPv4 payload too small for ICMP header. size %u size_in_words %u",
+      fprintf(stderr, "IPv4 payload too small for ICMP header. size %lu size_in_words %u",
               ipv4_payload->size, ipv4_payload->size_in_words);
       ret_val = false; 
     }
   }
   else
   {
-    fprintf(stderr, "Nullptr passed to parse ICMP header.  ipv4_payload 0x%x output_header 0x%x",
+    fprintf(stderr, "Nullptr passed to parse ICMP header.  ipv4_payload 0x%p output_header 0x%p",
             ipv4_payload, output_header);
     ret_val = false;
   }

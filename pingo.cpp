@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     {
       case EPERM:
       {
-        fprintf(stderr, "No permission to open raw socket.\n", errno);
+        fprintf(stderr, "No permission to open raw socket.\n");
         break;
       }
       default:
