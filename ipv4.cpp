@@ -1,6 +1,5 @@
 #include <arpa/inet.h>
 #include <cstdio>
-#include <cstdint>
 #include <cstring>
 
 #include "ipv4.hpp"
@@ -60,6 +59,14 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
       }
     }
 
+    if( (output_header->ihl < 5) || 
+        (output_header->total_length < IPV4_WORD_SIZE_TO_BYTE_SIZE(output_header->ihl)))
+    {
+      fprintf(stderr, "Unexpected IPv4 header ihl (%u) or total_length (%u)\n",
+              output_header->ihl, output_header->total_length);
+      ret_val = false;
+    }
+
     computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
 
     if(0xFFFF != computed_checksum)
@@ -89,11 +96,11 @@ ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t bu
 
     packet_meta.header_valid = parse_ipv4_header(buffer, buffer_size, &packet_meta.header);
 
-    if(packet_meta.header_valid && 
-      (packet_meta.header.ihl < BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)))
+    if(packet_meta.header_valid && (packet_meta.header.ihl < BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)))
     {
-      packet_meta.payload           = &buffer[packet_meta.header.ihl];
-      packet_meta.payload_word_size = (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)-packet_meta.header.ihl);
+      packet_meta.payload.buffer        = &buffer[packet_meta.header.ihl];
+      packet_meta.payload.size          = (packet_meta.header.total_length-IPV4_WORD_SIZE_TO_BYTE_SIZE(packet_meta.header.ihl));
+      packet_meta.payload.size_in_words = (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size)-packet_meta.header.ihl);
     }
   }
 

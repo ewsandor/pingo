@@ -36,11 +36,12 @@ int main(int argc, char *argv[])
     memset(&buffer, 0, sizeof(buffer));
 
     ipv4_packet_meta_s ipv4_packet_meta;
-    icmp_header_s      icmp_header;
+    icmp_packet_meta_s icmp_packet_meta;
 
     recv(sockfd, &buffer, sizeof(buffer), 0);
 
     ipv4_packet_meta = parse_ipv4_packet(buffer, sizeof(buffer));
+    icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
 
     printf("valid %u src 0x%x dest 0x%x id 0x%x\n", 
             ipv4_packet_meta.header_valid,

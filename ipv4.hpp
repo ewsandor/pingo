@@ -1,6 +1,9 @@
 #ifndef __IPV4_HPP__
 #define __IPV4_HPP__
 
+#include <cstddef>
+#include <cstdint>
+
 typedef uint32_t     ipv4_word_t;
 typedef unsigned int ipv4_word_size_t;
 
@@ -28,6 +31,20 @@ typedef struct __attribute__((packed))
 
 } ipv4_header_s;
 
+typedef struct
+{
+  /* Pointer to payload buffer. Assumed to be in network big-endian format. */
+  const ipv4_word_t *buffer;
+  /* Size of payload. 
+      Based on total length (total_length - header_size), payload may be truncated if payload buffer is smaller than total length. */
+  size_t             size;
+  /* Size of the payload buffer.  
+      Based on buffer size (buffer_size-header.ihl), not the total length from the IPv4 header. */
+  ipv4_word_size_t   size_in_words;
+
+} ipv4_payload_s;
+
+
 typedef struct 
 {
   /* Raw buffer for IPv4 packet. Assumed to be in network big-endian format. */
@@ -39,11 +56,7 @@ typedef struct
   bool               header_valid;
   ipv4_header_s      header;
 
-  /* Pointer to payload after the IPv4 header from buffer. Assumed to be in network big-endian format. */
-  const ipv4_word_t *payload;
-  /* Size of the payload.  
-      Based on buffer size (buffer_size-header.ihl), not the total length from the IPv4 header. */
-  ipv4_word_size_t   payload_word_size;
+  ipv4_payload_s     payload;
 
 } ipv4_packet_meta_s;
 

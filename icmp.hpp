@@ -1,6 +1,8 @@
 #ifndef __ICMP_HPP__
 #define __ICMP_HPP__
 
+#include "ipv4.hpp"
+
 typedef enum
 {
   ICMP_TYPE_ECHO_REPLY                = 0,
@@ -100,9 +102,7 @@ typedef struct __attribute__((packed))
 typedef union __attribute__((packed))
 {
   uint32_t                               unused;
-  icmp_rest_of_header_id_seq_num_s       echo;
-  icmp_rest_of_header_id_seq_num_s       timestamp;
-  icmp_rest_of_header_id_seq_num_s       address_mask;
+  icmp_rest_of_header_id_seq_num_s       id_seq_num;
   icmp_ip_address_t                      redirect;
   icmp_rest_of_header_dest_unreachable_s dest_unreachable;
 } icmp_rest_of_header_u;
@@ -110,12 +110,27 @@ typedef union __attribute__((packed))
 typedef struct __attribute__((packed))
 {
   icmp_type_e           type:8;
-  icmp_code_e           code_enum:8;
+  icmp_code_e           code:8;
   uint16_t              checksum;
 
   icmp_rest_of_header_u rest_of_header;
   
 } icmp_header_s;
 
+typedef uint8_t icmp_payload_t;
+
+typedef struct 
+{
+
+  /* Header is valid if the ipv4 packet has been parsed successfully and checksum was correct */
+  bool                  header_valid;
+  icmp_header_s         header;
+
+  const icmp_payload_t *payload;
+  size_t                payload_size;
+
+} icmp_packet_meta_s;
+
+icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s*);
 
 #endif /* __ICMP_HPP__ */
