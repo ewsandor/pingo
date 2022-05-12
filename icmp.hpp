@@ -117,20 +117,22 @@ typedef struct __attribute__((packed))
   
 } icmp_header_s;
 
-typedef uint8_t icmp_payload_t;
+typedef uint8_t icmp_buffer_t;
 
 typedef struct 
 {
 
   /* Header is valid if the ipv4 packet has been parsed successfully and checksum was correct */
-  bool                  header_valid;
-  icmp_header_s         header;
+  bool                 header_valid;
+  icmp_header_s        header;
 
-  const icmp_payload_t *payload;
-  size_t                payload_size;
+  const icmp_buffer_t *payload;
+  size_t               payload_size;
 
 } icmp_packet_meta_s;
 
 icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s*);
+
+size_t encoded_icmp_packet(const icmp_packet_meta_s*, icmp_buffer_t *, size_t);
 
 #endif /* __ICMP_HPP__ */

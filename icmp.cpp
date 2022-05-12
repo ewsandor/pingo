@@ -124,7 +124,7 @@ icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s* ipv4_payload)
     icmp_packet_meta.header_valid = parse_icmp_header(ipv4_payload, &icmp_packet_meta.header);
     if(icmp_packet_meta.header_valid)
     {
-      icmp_packet_meta.payload      = (icmp_payload_t*) &ipv4_payload->buffer[2];
+      icmp_packet_meta.payload      = (icmp_buffer_t*) &ipv4_payload->buffer[2];
       icmp_packet_meta.payload_size = (ipv4_payload->size-8);
     }
   }
@@ -134,4 +134,111 @@ icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s* ipv4_payload)
   }
 
   return icmp_packet_meta;
+}
+
+size_t encoded_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffer_t * buffer, size_t buffer_size)
+{
+  size_t        output_size = 0;
+  uint_fast32_t computed_checksum = 0;
+  icmp_buffer_t *write_ptr;
+  icmp_buffer_t *checksum_ptr;
+  uint16_t      htons_val;
+  uint32_t      htonl_val;
+  size_t        tmp_size;
+  uint16_t     *checksum_buffer;
+  unsigned int  checksum_iterator;
+
+  if(icmp_packet_meta && buffer)
+  {
+    output_size = (sizeof(icmp_header_s) + icmp_packet_meta->payload_size);
+
+    if(icmp_packet_meta->header_valid && (output_size <= buffer_size))
+    {
+      write_ptr = buffer;
+      *write_ptr = icmp_packet_meta->header.type;
+      write_ptr++;
+      *write_ptr = icmp_packet_meta->header.code;
+      write_ptr++;
+      /* Comeback to checksum later */
+      checksum_ptr = write_ptr;
+      write_ptr+=2;
+      switch(icmp_packet_meta->header.type)
+      {
+        case ICMP_TYPE_ECHO_REQUEST:
+        case ICMP_TYPE_ECHO_REPLY:
+        case ICMP_TYPE_TIMESTAMP_REQUEST:
+        case ICMP_TYPE_TIMESTAMP_REPLY:
+        case ICMP_TYPE_ADDRESS_MASK_REQUEST:
+        case ICMP_TYPE_ADDRESS_MASK_REPLY:
+        {
+          htons_val = htonl(icmp_packet_meta->header.rest_of_header.id_seq_num.identifier);
+          memcpy(write_ptr, &htons_val, sizeof(htons_val));
+          write_ptr+=sizeof(htons_val);
+          htons_val = htonl(icmp_packet_meta->header.rest_of_header.id_seq_num.sequence_number);
+          memcpy(write_ptr, &htons_val, sizeof(htons_val));
+          write_ptr+=sizeof(htons_val);
+          break;
+        }
+        case ICMP_TYPE_REDIRECT_MESSAGE:
+        {
+          htonl_val = htonl(icmp_packet_meta->header.rest_of_header.redirect);
+          memcpy(write_ptr, &htonl_val, sizeof(htonl_val));
+          write_ptr+=sizeof(htonl_val);
+          break;
+        }
+        case ICMP_TYPE_DESTINATION_UNREACHABLE:
+        {
+          htons_val = htonl(icmp_packet_meta->header.rest_of_header.dest_unreachable.unused);
+          memcpy(write_ptr, &htons_val, sizeof(htons_val));
+          write_ptr+=sizeof(htons_val);
+          htons_val = htonl(icmp_packet_meta->header.rest_of_header.dest_unreachable.next_hop_mtu);
+          memcpy(write_ptr, &htons_val, sizeof(htons_val));
+          write_ptr+=sizeof(htons_val);
+          break;
+        }
+        default:
+        {
+          htonl_val = htonl(icmp_packet_meta->header.rest_of_header.unused);
+          memcpy(write_ptr, &htonl_val, sizeof(htonl_val));
+          write_ptr+=sizeof(htonl_val);
+          break;
+        }
+      }
+      memcpy(write_ptr, icmp_packet_meta->payload, sizeof(icmp_packet_meta->payload_size));
+      write_ptr+=sizeof(icmp_packet_meta->payload_size);
+
+      /* Compute checksum */
+      tmp_size = output_size;
+      checksum_buffer=(uint16_t*) buffer;
+      checksum_iterator=0;
+      while(tmp_size >= sizeof(uint16_t))
+      {
+        computed_checksum += ntohs(checksum_buffer[checksum_iterator]);
+        checksum_iterator++;
+        tmp_size -= sizeof(uint16_t);
+      }
+      if(tmp_size == sizeof(uint8_t))
+      {
+        computed_checksum += (ntohs(checksum_buffer[checksum_iterator]) & 0xFF00);
+        checksum_iterator++;
+        tmp_size -= sizeof(uint8_t);
+      }
+      htons_val = htons(computed_checksum);
+      memcpy(checksum_ptr, &htons_val, sizeof(htons_val));
+    }
+    else
+    {
+      fprintf(stderr, "ICMP header invalid or output buffer too small.  header_valid %u output_size %lu buffer_size %lu\n",
+              icmp_packet_meta->header_valid, output_size, buffer_size);
+      output_size = 0;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null inputs to encode ICMP packet.  icmp_packet_meta 0x%p buffer 0x%p\n",
+            icmp_packet_meta, buffer);
+    output_size = 0;
+  }
+
+  return output_size;
 }
