@@ -10,6 +10,9 @@ typedef unsigned int ipv4_word_size_t;
 #define IPV4_MAX_PACKET_SIZE_BYTES 65535
 #define IPV4_MAX_PACKET_SIZE_WORDS ((IPV4_MAX_PACKET_SIZE_BYTES/sizeof(ipv4_word_size_t))+1)
 
+#define IPV4_FLAG_DF 0x2
+#define IPV4_FLAG_MF 0x4
+
 typedef struct __attribute__((packed))
 {
   uint8_t  version:4;

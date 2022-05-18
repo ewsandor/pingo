@@ -4,6 +4,7 @@
 #include <cstring>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "icmp.hpp"
 #include "ipv4.hpp"
@@ -11,6 +12,8 @@
 int main(int argc, char *argv[])
 {
   int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  struct sockaddr_in write_addr = {0};
+
   if(sockfd == -1)
   {
     switch(errno)
@@ -30,6 +33,36 @@ int main(int argc, char *argv[])
   }
 
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
+
+
+  unsigned int packet_id = 73;
+  const char * payload = "Ping test.";
+  while(1)
+  {
+    icmp_packet_meta_s icmp_packet_meta;
+    memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
+
+    icmp_packet_meta.header.type = ICMP_TYPE_ECHO_REQUEST;
+    icmp_packet_meta.header.code = ICMP_CODE_ZERO;
+    icmp_packet_meta.header.rest_of_header.id_seq_num.identifier      = 0xEDED;
+    icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
+    icmp_packet_meta.header_valid = true;
+    icmp_packet_meta.payload = (icmp_buffer_t*) payload;
+    icmp_packet_meta.payload_size = 10;
+    ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
+    printf("ICMP Packet %u size %lu\n", packet_id++, icmp_packet_size);
+
+    write_addr = {0};
+    write_addr.sin_family      = AF_INET;
+    write_addr.sin_port        = htons(IPPROTO_ICMP);
+    write_addr.sin_addr.s_addr = htonl((10<<24) | (73<<16) | (6<<8) | 0);
+    if(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&write_addr, sizeof(write_addr)))
+    {
+      fprintf(stderr, "Failed to send to raw socket.  errno %u\n", errno);
+    }
+
+    sleep(1);
+  }
 
   while(1)
   {
@@ -60,9 +93,6 @@ int main(int argc, char *argv[])
               icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
               icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
               icmp_packet_meta.payload_size);
-
-      encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
-      encode_ipv4_packet(&ipv4_packet_meta, buffer, sizeof(buffer));
     }
   }
 }

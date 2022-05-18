@@ -154,6 +154,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
 
     if(icmp_packet_meta->header_valid && (output_size <= buffer_size))
     {
+      memset(buffer, 0, output_size);
       write_ptr = buffer;
       *write_ptr = icmp_packet_meta->header.type;
       write_ptr++;
@@ -171,10 +172,10 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
         case ICMP_TYPE_ADDRESS_MASK_REQUEST:
         case ICMP_TYPE_ADDRESS_MASK_REPLY:
         {
-          htons_val = htonl(icmp_packet_meta->header.rest_of_header.id_seq_num.identifier);
+          htons_val = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.identifier);
           memcpy(write_ptr, &htons_val, sizeof(htons_val));
           write_ptr+=sizeof(htons_val);
-          htons_val = htonl(icmp_packet_meta->header.rest_of_header.id_seq_num.sequence_number);
+          htons_val = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.sequence_number);
           memcpy(write_ptr, &htons_val, sizeof(htons_val));
           write_ptr+=sizeof(htons_val);
           break;
@@ -204,8 +205,11 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
           break;
         }
       }
-      memcpy(write_ptr, icmp_packet_meta->payload, sizeof(icmp_packet_meta->payload_size));
-      write_ptr+=sizeof(icmp_packet_meta->payload_size);
+      if(icmp_packet_meta->payload_size)
+      {
+        memcpy(write_ptr, icmp_packet_meta->payload, icmp_packet_meta->payload_size);
+        write_ptr+=sizeof(icmp_packet_meta->payload_size);
+      }
 
       /* Compute checksum */
       tmp_size = output_size;
@@ -223,6 +227,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
         checksum_iterator++;
         tmp_size -= sizeof(uint8_t);
       }
+      computed_checksum = ~((computed_checksum & 0xFFFF) + (computed_checksum>>16));
       htons_val = htons(computed_checksum);
       memcpy(checksum_ptr, &htons_val, sizeof(htons_val));
     }
