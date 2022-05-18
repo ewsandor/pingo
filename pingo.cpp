@@ -61,7 +61,8 @@ int main(int argc, char *argv[])
               icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
               icmp_packet_meta.payload_size);
 
-      encoded_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
+      encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
+      encode_ipv4_packet(&ipv4_packet_meta, buffer, sizeof(buffer));
     }
   }
 }

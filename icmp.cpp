@@ -136,7 +136,7 @@ icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s* ipv4_payload)
   return icmp_packet_meta;
 }
 
-size_t encoded_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffer_t * buffer, size_t buffer_size)
+size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffer_t * buffer, size_t buffer_size)
 {
   size_t        output_size = 0;
   uint_fast32_t computed_checksum = 0;

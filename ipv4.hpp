@@ -76,4 +76,6 @@ ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t);
     Assumes header is valid. Returns 0 in case of error*/
 ipv4_word_size_t get_ipv4_header_size(const ipv4_header_s*);
 
+size_t encode_ipv4_packet(const ipv4_packet_meta_s*, ipv4_word_t *, size_t);
+
 #endif /* __IPV4_HPP__ */

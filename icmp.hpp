@@ -133,6 +133,6 @@ typedef struct
 
 icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s*);
 
-size_t encoded_icmp_packet(const icmp_packet_meta_s*, icmp_buffer_t *, size_t);
+size_t encode_icmp_packet(const icmp_packet_meta_s*, icmp_buffer_t *, size_t);
 
 #endif /* __ICMP_HPP__ */
