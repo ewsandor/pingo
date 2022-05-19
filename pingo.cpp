@@ -14,9 +14,11 @@
 /* ms*1000us/ms*1000ns/us */
 #define MS_TO_NANOSEC(ms) (ms*1000*1000)
 
-const unsigned int ping_block_size = 64;
-const unsigned int ping_blocks = 4;
-const uint32_t dest_base_address = (10<<24) | (73<<16) | (68<<8) | 0;
+const unsigned int ping_batch_size = 256;
+const unsigned int ping_batches = 256;
+//const uint32_t dest_base_address = (10<<24) | (73<<16) | (68<<8) | 0;
+//const uint32_t dest_base_address = (209<<24) | (131<<16) | (237<<8) | 0;
+const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
 
 typedef struct 
 {
@@ -66,6 +68,7 @@ inline void ip_string(uint32_t address, char* buffer, size_t buffer_size)
 void *send_thread_f(void*)
 {
   int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  const int socket_ttl = 255;
   unsigned int i,j;
   struct sockaddr_in write_addr = {0};
   unsigned int packet_id = 0;
@@ -78,7 +81,7 @@ void *send_thread_f(void*)
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
   ping_block_cooldown.tv_sec = 0;
-  ping_block_cooldown.tv_nsec = MS_TO_NANOSEC(250);
+  ping_block_cooldown.tv_nsec = MS_TO_NANOSEC(50);
 
   if(sockfd == -1)
   {
@@ -98,9 +101,15 @@ void *send_thread_f(void*)
     exit(1);
   }
 
-  for(i = 0; i < ping_blocks; i++)
+  setsockopt(sockfd, IPPROTO_IP, IP_TTL, &socket_ttl, sizeof(socket_ttl));
+
+  for(i = 0; i < ping_batches; i++)
   {
-    for(j = 0; j < ping_block_size; j++)
+    ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
+    printf("Ping block %u.  %u IPs starting at IP %s\n",
+           i, ping_batch_size, ip_string_buffer);
+
+    for(j = 0; j < ping_batch_size; j++)
     {
       memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
 
@@ -116,8 +125,8 @@ void *send_thread_f(void*)
       clock_gettime(CLOCK_MONOTONIC_COARSE, &pingo_payload.request_time);
 
       ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
-      ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-      printf("ICMP Packet %u to %s size %lu\n", packet_id, ip_string_buffer, icmp_packet_size);
+      //ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
+      //printf("ICMP Packet %u to %s size %lu\n", packet_id, ip_string_buffer, icmp_packet_size);
 
       write_addr = {0};
       write_addr.sin_family      = AF_INET;
@@ -134,13 +143,13 @@ void *send_thread_f(void*)
    nanosleep(&ping_block_cooldown,nullptr);
   }
   close(sockfd);
+  printf("Done sending pings.\n");
   return nullptr;
 }
 
 void *recv_thread_f(void*)
 {
   int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-  unsigned int i,j;
   ipv4_packet_meta_s ipv4_packet_meta;
   icmp_packet_meta_s icmp_packet_meta;
   pingo_payload_t pingo_payload = {0};
@@ -175,66 +184,55 @@ void *recv_thread_f(void*)
   recv_timeout.tv_usec = 0;
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&recv_timeout, sizeof(recv_timeout));
 
-  for(i = 0; i < ping_blocks; i++)
+  while(1)
   {
-    for(j = 0; j < ping_block_size; j++)
+    memset(&buffer, 0, sizeof(buffer));
+
+    recv_bytes = recv(sockfd, &buffer, sizeof(buffer), 0);
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &ping_reply_time);
+
+    if(-1 == recv_bytes)
     {
-      memset(&buffer, 0, sizeof(buffer));
-
-      recv_bytes = recv(sockfd, &buffer, sizeof(buffer), 0);
-      clock_gettime(CLOCK_MONOTONIC_COARSE, &ping_reply_time);
-
-      if(-1 == recv_bytes)
+      switch(errno)
       {
-        switch(errno)
+        case EWOULDBLOCK:
         {
-          case EWOULDBLOCK:
-          {
-            printf("Waiting for packets. Timeouts %u\n", recv_timeouts++);
-            break;
-          }
-          default:
-          {
-            fprintf(stderr, "Failed to receive from socket.  errno %u: %s\n", errno, strerror(errno));
-            exit(1);
-            break;
-          }
+          printf("Waiting for packets. Timeouts %u\n", ++recv_timeouts);
+          break;
+        }
+        default:
+        {
+          fprintf(stderr, "Failed to receive from socket.  errno %u: %s\n", errno, strerror(errno));
+          exit(1);
+          break;
         }
       }
-      else if(0 == recv_bytes)
-      {
-        printf("Empty packet.\n");
-      }
-      else
-      {
-        ipv4_packet_meta = parse_ipv4_packet(buffer, sizeof(buffer));
+    }
+    else if(0 == recv_bytes)
+    {
+      printf("Empty packet.\n");
+    }
+    else
+    {
+      ipv4_packet_meta = parse_ipv4_packet(buffer, sizeof(buffer));
 
-        // printf("IPv4 valid %u src 0x%x dest 0x%x id 0x%x total_length %u ttl %u\n", 
-        //         ipv4_packet_meta.header_valid,
-        //         ipv4_packet_meta.header.source_ip, 
-        //         ipv4_packet_meta.header.dest_ip, 
-        //         ipv4_packet_meta.header.identification,
-        //         ipv4_packet_meta.header.total_length,
-        //         ipv4_packet_meta.header.ttl);
-
-        if(ipv4_packet_meta.header_valid)
+      if(ipv4_packet_meta.header_valid)
+      {
+        icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
+        ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer, sizeof(ip_string_buffer));
+        printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
+                icmp_packet_meta.header_valid,
+                ip_string_buffer,
+                icmp_packet_meta.header.type, 
+                icmp_packet_meta.header.code, 
+                icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
+                icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
+                icmp_packet_meta.payload_size);
+        if(icmp_packet_meta.header_valid && (icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
         {
-          icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
-          ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer, sizeof(ip_string_buffer));
-          printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
-                  icmp_packet_meta.header_valid,
-                  ip_string_buffer,
-                  icmp_packet_meta.header.type, 
-                  icmp_packet_meta.header.code, 
-                  icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
-                  icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
-                  icmp_packet_meta.payload_size);
-          if(icmp_packet_meta.header_valid && (icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
-          {
-            pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
-            diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
-            printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
-          }
+          pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
+          diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
+          printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
         }
       }
     }
@@ -258,7 +256,6 @@ int main(int argc, char *argv[])
   pthread_create( &send_thread, NULL, send_thread_f, nullptr);
 
   pthread_join( send_thread, NULL);
-  pthread_join( recv_thread, NULL); 
 
   clock_gettime(CLOCK_MONOTONIC_COARSE, &loop_end);
   clock_getres(CLOCK_MONOTONIC_COARSE, &clock_resolution);
@@ -268,4 +265,6 @@ int main(int argc, char *argv[])
   printf("Resolution: %lu.%09lu\n", clock_resolution.tv_sec, clock_resolution.tv_nsec);
   diff_time_spec(&loop_end, &loop_start, &time_diff);
   printf("Diff: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+
+  while('q' != getchar()) {}
 }
