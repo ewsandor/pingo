@@ -5,30 +5,21 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "icmp.hpp"
 #include "ipv4.hpp"
+#include "ping_block.hpp"
+#include "pingo.hpp"
 
-/* ms*1000us/ms*1000ns/us */
-#define MS_TO_NANOSEC(ms) (ms*1000*1000)
+using namespace sandor_laboratories::pingo;
 
-const unsigned int ping_batch_size = 256;
-const unsigned int ping_batches = 256;
 //const uint32_t dest_base_address = (10<<24) | (73<<16) | (68<<8) | 0;
 //const uint32_t dest_base_address = (209<<24) | (131<<16) | (237<<8) | 0;
 const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
 
-typedef struct 
-{
-  uint32_t        dest_address;
-  struct timespec request_time;
-} pingo_payload_t;
-
-
 /* a-b=diff, returns false if input is null or b > a */
-bool diff_time_spec(const struct timespec * a, const struct timespec * b, struct timespec * diff)
+bool sandor_laboratories::pingo::diff_time_spec(const struct timespec * a, const struct timespec * b, struct timespec * diff)
 {
   bool ret_val = false;
   
@@ -52,8 +43,7 @@ bool diff_time_spec(const struct timespec * a, const struct timespec * b, struct
   return ret_val;
 }
 
-#define IP_STRING_SIZE 16
-inline void ip_string(uint32_t address, char* buffer, size_t buffer_size)
+void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_t buffer_size)
 {
   if(buffer)
   {
@@ -67,83 +57,10 @@ inline void ip_string(uint32_t address, char* buffer, size_t buffer_size)
 
 void *send_thread_f(void*)
 {
-  int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-  const int socket_ttl = 255;
-  unsigned int i,j;
-  struct sockaddr_in write_addr = {0};
-  unsigned int packet_id = 0;
-  icmp_packet_meta_s icmp_packet_meta;
-  pingo_payload_t pingo_payload = {0};
-  struct timespec ping_block_cooldown = {0};
-  uint32_t dest_address = dest_base_address;
-  char ip_string_buffer[IP_STRING_SIZE];
+  ping_block_c ping_block(dest_base_address, 256*256);
 
-  ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
+  ping_block.dispatch();
 
-  ping_block_cooldown.tv_sec = 0;
-  ping_block_cooldown.tv_nsec = MS_TO_NANOSEC(50);
-
-  if(sockfd == -1)
-  {
-    switch(errno)
-    {
-      case EPERM:
-      {
-        fprintf(stderr, "No permission to open socket.\n");
-        break;
-      }
-      default:
-      {
-        fprintf(stderr, "Failed to open socket.  errno %u: %s\n", errno, strerror(errno));
-        break;
-      }
-    }
-    exit(1);
-  }
-
-  setsockopt(sockfd, IPPROTO_IP, IP_TTL, &socket_ttl, sizeof(socket_ttl));
-
-  for(i = 0; i < ping_batches; i++)
-  {
-    ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-    printf("Ping block %u.  %u IPs starting at IP %s\n",
-           i, ping_batch_size, ip_string_buffer);
-
-    for(j = 0; j < ping_batch_size; j++)
-    {
-      memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
-
-      icmp_packet_meta.header.type = ICMP_TYPE_ECHO_REQUEST;
-      icmp_packet_meta.header.code = ICMP_CODE_ZERO;
-      icmp_packet_meta.header.rest_of_header.id_seq_num.identifier      = 0xEDED;
-      icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
-      icmp_packet_meta.header_valid = true;
-      icmp_packet_meta.payload = (icmp_buffer_t*) &pingo_payload;
-      icmp_packet_meta.payload_size = sizeof(pingo_payload_t);
-
-      pingo_payload.dest_address = dest_address;
-      clock_gettime(CLOCK_MONOTONIC_COARSE, &pingo_payload.request_time);
-
-      ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
-      //ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-      //printf("ICMP Packet %u to %s size %lu\n", packet_id, ip_string_buffer, icmp_packet_size);
-
-      write_addr = {0};
-      write_addr.sin_family      = AF_INET;
-      write_addr.sin_port        = htons(IPPROTO_ICMP);
-      write_addr.sin_addr.s_addr = htonl(pingo_payload.dest_address);
-      if(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&write_addr, sizeof(write_addr)))
-      {
-        fprintf(stderr, "Failed to send to socket.  errno %u: %s\n", errno, strerror( errno));
-        exit(1);
-      }
-      packet_id++;
-      dest_address++;
-   }
-   nanosleep(&ping_block_cooldown,nullptr);
-  }
-  close(sockfd);
-  printf("Done sending pings.\n");
   return nullptr;
 }
 
@@ -189,7 +106,7 @@ void *recv_thread_f(void*)
     memset(&buffer, 0, sizeof(buffer));
 
     recv_bytes = recv(sockfd, &buffer, sizeof(buffer), 0);
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &ping_reply_time);
+    get_time(&ping_reply_time);
 
     if(-1 == recv_bytes)
     {
@@ -252,13 +169,13 @@ int main(int argc, char *argv[])
 
 
   pthread_create( &recv_thread, NULL, recv_thread_f, nullptr);
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &loop_start);
+  get_time(&loop_start);
   pthread_create( &send_thread, NULL, send_thread_f, nullptr);
 
   pthread_join( send_thread, NULL);
 
-  clock_gettime(CLOCK_MONOTONIC_COARSE, &loop_end);
-  clock_getres(CLOCK_MONOTONIC_COARSE, &clock_resolution);
+  get_time(&loop_end);
+  get_time(&clock_resolution);
 
   printf("Loop start: %lu.%09lu\n", loop_start.tv_sec, loop_start.tv_nsec);
   printf("Loop end:   %lu.%09lu\n", loop_end.tv_sec, loop_end.tv_nsec);
