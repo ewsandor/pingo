@@ -13,13 +13,29 @@
 
 using namespace sandor_laboratories::pingo;
 
-const ping_block_config_s default_ping_block_config = 
+static const ping_block_config_s default_ping_block_config = 
   {
+    .verbose         = true,
     .ping_batch_size = 256,
+    .ping_batch_cooldown = 
+      {
+        .tv_sec  = 0,
+        .tv_nsec = MS_TO_NANOSEC(50),
+      },
+    .socket_ttl      = 255,
+    .identifier      = 0xEdEd,
   };
 
-ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count)
-  : first_address(first_address), address_count(address_count), config(default_ping_block_config)
+void ping_block_c::init_config(ping_block_config_s* new_config)
+{
+  if(new_config)
+  {
+    *new_config = default_ping_block_config;
+  }
+}
+
+ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, const ping_block_config_s *init_config)
+  : first_address(first_address), address_count(address_count), config(*init_config)
 {
   unsigned int i;
 
@@ -39,6 +55,8 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count)
 
   assert(0 == pthread_mutex_unlock(&mutex));
 }
+ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count)
+  : ping_block_c(first_address, address_count, &default_ping_block_config) {};
 
 ping_block_c::~ping_block_c()
 {
@@ -79,46 +97,32 @@ bool ping_block_c::dispatch()
 {
   bool ret_val = false;
 
-  int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-  const int socket_ttl = 255;
-  unsigned int i, batch_index = 0, packet_id = 0;
-  struct sockaddr_in write_addr = {0};
-  icmp_packet_meta_s icmp_packet_meta;
-  pingo_payload_t pingo_payload = {0};
-  struct timespec ping_block_cooldown = {0};
-  uint32_t dest_address = get_first_address();
-  char ip_string_buffer[IP_STRING_SIZE];
-
-  ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
-
-  ping_block_cooldown.tv_sec = 0;
-  ping_block_cooldown.tv_nsec = MS_TO_NANOSEC(50);
+  int                 sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  unsigned int        i, batch_index = 0, packet_id = 0;
+  icmp_packet_meta_s  icmp_packet_meta;
+  pingo_payload_t     pingo_payload = {0};
+  uint32_t            dest_address = get_first_address();
+  struct sockaddr_in  send_sockaddr = {0};
+  struct timespec     dispatch_done_time_temp;
+  char                ip_string_buffer[IP_STRING_SIZE];
+  ipv4_word_t         buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
   if(sockfd == -1)
   {
-    switch(errno)
-    {
-      case EPERM:
-      {
-        fprintf(stderr, "No permission to open socket.\n");
-        break;
-      }
-      default:
-      {
-        fprintf(stderr, "Failed to open socket.  errno %u: %s\n", errno, strerror(errno));
-        break;
-      }
-    }
+    fprintf(stderr, "Failed to open socket to dispatch ping block.  errno %u: %s\n", errno, strerror(errno));
   }
   else
   {
-    setsockopt(sockfd, IPPROTO_IP, IP_TTL, &socket_ttl, sizeof(socket_ttl));
+    setsockopt(sockfd, IPPROTO_IP, IP_TTL, &config.socket_ttl, sizeof(config.socket_ttl));
 
-    while(dest_address < get_last_address())
+    for(batch_index = 0; dest_address < get_last_address(); batch_index++)
     {
-      ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-      printf("Ping batch %u.  %u IPs starting at IP %s\n",
-            batch_index, config.ping_batch_size, ip_string_buffer);
+      if(config.verbose)
+      {
+        ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
+        printf("Ping batch %u.  %u IPs starting at IP %s\n",
+              batch_index, config.ping_batch_size, ip_string_buffer);
+      }
 
       for(i = 0; i < config.ping_batch_size; i++)
       {
@@ -126,7 +130,7 @@ bool ping_block_c::dispatch()
 
         icmp_packet_meta.header.type = ICMP_TYPE_ECHO_REQUEST;
         icmp_packet_meta.header.code = ICMP_CODE_ZERO;
-        icmp_packet_meta.header.rest_of_header.id_seq_num.identifier      = 0xEDED;
+        icmp_packet_meta.header.rest_of_header.id_seq_num.identifier      = config.identifier;
         icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
         icmp_packet_meta.header_valid = true;
         icmp_packet_meta.payload = (icmp_buffer_t*) &pingo_payload;
@@ -136,16 +140,15 @@ bool ping_block_c::dispatch()
         get_time(&pingo_payload.request_time);
 
         ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
-        //ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-        //printf("ICMP Packet %u to %s size %lu\n", packet_id, ip_string_buffer, icmp_packet_size);
 
-        write_addr = {0};
-        write_addr.sin_family      = AF_INET;
-        write_addr.sin_port        = htons(IPPROTO_ICMP);
-        write_addr.sin_addr.s_addr = htonl(pingo_payload.dest_address);
-        if(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&write_addr, sizeof(write_addr)))
+        send_sockaddr = {0};
+        send_sockaddr.sin_family      = AF_INET;
+        send_sockaddr.sin_port        = htons(IPPROTO_ICMP);
+        send_sockaddr.sin_addr.s_addr = htonl(pingo_payload.dest_address);
+        if(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
         {
-          fprintf(stderr, "Failed to send to socket.  errno %u: %s\n", errno, strerror( errno));
+          ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
+          fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror( errno));
           exit(1);
         }
         packet_id++;
@@ -155,17 +158,33 @@ bool ping_block_c::dispatch()
           break;
         }
       }
-      nanosleep(&ping_block_cooldown,nullptr);
-      batch_index++;
+      if(dest_address < get_last_address())
+      {
+        nanosleep(&config.ping_batch_cooldown,nullptr);
+      }
     }
+    get_time(&dispatch_done_time_temp);
+    ret_val = true;
+      
+    if(0 != close(sockfd))
+    {
+      ip_string(get_first_address(), ip_string_buffer, sizeof(ip_string_buffer));
+      fprintf(stderr, "Failed to close socket for ping block.  First address %s address count %u.  errno %u: %s\n", 
+        ip_string_buffer, get_address_count(), errno, strerror(errno));
+      ret_val = false;
+    }
+
     assert(0 == pthread_mutex_lock(&mutex));
-    get_time(&dispatch_done_time);
+    dispatch_done_time = dispatch_done_time_temp;
     fully_dispatched = true;
     assert(0 == pthread_mutex_unlock(&mutex));
-    
-    close(sockfd);
-    ret_val = true;
-    printf("Done sending pings.\n");
+ 
+    if(config.verbose)
+    {
+      ip_string(get_first_address(), ip_string_buffer, sizeof(ip_string_buffer));
+      printf("Done dispatching ping block.  First address %s address count %u.\n", 
+        ip_string_buffer, get_address_count());
+    }
   }
 
   return ret_val;

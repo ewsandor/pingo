@@ -57,9 +57,15 @@ void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_
 
 void *send_thread_f(void*)
 {
-  ping_block_c ping_block(dest_base_address, 256*256);
+  ping_block_config_s  ping_block_config;
+  ping_block_c        *ping_block;
+  
+  ping_block_c::init_config(&ping_block_config); 
+  ping_block = new ping_block_c(dest_base_address, 65536, &ping_block_config);
 
-  ping_block.dispatch();
+  ping_block->dispatch();
+
+  delete ping_block;
 
   return nullptr;
 }

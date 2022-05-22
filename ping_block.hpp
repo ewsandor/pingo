@@ -19,7 +19,11 @@ namespace sandor_laboratories
 
     typedef struct 
     {
-      unsigned int ping_batch_size;
+      bool            verbose;
+      unsigned int    ping_batch_size;
+      struct timespec ping_batch_cooldown;
+      unsigned int    socket_ttl;
+      uint16_t        identifier;
 
     } ping_block_config_s;
     
@@ -38,7 +42,10 @@ namespace sandor_laboratories
         pthread_mutex_t     mutex;
 
       public:
+        static void init_config(ping_block_config_s*);
+
         ping_block_c(uint32_t first_address, unsigned int address_count);
+        ping_block_c(uint32_t first_address, unsigned int address_count, const ping_block_config_s *);
         ~ping_block_c();
 
         inline uint32_t get_first_address() const {return first_address;};
