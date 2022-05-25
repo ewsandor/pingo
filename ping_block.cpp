@@ -187,6 +187,7 @@ bool ping_block_c::dispatch()
     lock();
     dispatch_done_time = dispatch_done_time_temp;
     fully_dispatched = true;
+    assert(0==pthread_cond_broadcast(&dispatch_done_cond));
     unlock();
  
     if(config.verbose)
@@ -199,13 +200,26 @@ bool ping_block_c::dispatch()
 
   return ret_val;
 }
+bool ping_block_c::is_fully_dispatched()
+{
+  bool ret_val = false;
+
+  lock();
+  ret_val = fully_dispatched;
+  unlock();
+
+  return ret_val;
+}
 
 struct timespec ping_block_c::get_dispatch_done_time()
 {
-  struct timespec ret_val;
+  struct timespec ret_val = {0};
 
   lock();
-  ret_val = dispatch_done_time;
+  if(fully_dispatched)
+  {
+    ret_val = dispatch_done_time;
+  }
   unlock();
 
   return ret_val;
@@ -213,12 +227,26 @@ struct timespec ping_block_c::get_dispatch_done_time()
 
 struct timespec ping_block_c::time_since_dispatch()
 {
-  struct timespec dispatch_done_time_copy, time_now, ret_val;
+  struct timespec dispatch_done_time_copy, time_now, ret_val = {0};
 
-  dispatch_done_time_copy = get_dispatch_done_time();
-  get_time(&time_now);
-
-  diff_time_spec(&time_now, &dispatch_done_time_copy, &ret_val);
+  if(is_fully_dispatched())
+  {
+    dispatch_done_time_copy = get_dispatch_done_time();
+    get_time(&time_now);
+    diff_time_spec(&time_now, &dispatch_done_time_copy, &ret_val);
+  }
 
   return ret_val;
+}
+
+void ping_block_c::wait_dispatch_done()
+{
+  lock();
+
+  while(!fully_dispatched)
+  {
+    assert(0==pthread_cond_wait(&dispatch_done_cond, &mutex));
+  }
+
+  unlock();
 }

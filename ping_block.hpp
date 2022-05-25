@@ -36,6 +36,7 @@ namespace sandor_laboratories
         const ping_block_config_s  config;
         ping_block_entry_s        *entry;
 
+        pthread_cond_t             dispatch_done_cond = PTHREAD_COND_INITIALIZER;
         bool                       fully_dispatched;
         struct timespec            dispatch_done_time;
 
@@ -59,10 +60,14 @@ namespace sandor_laboratories
         /* Opens a IPv4 socket and dispatches ping echo requests for all IP address in this block */
         bool dispatch();
 
+        /* Returns true if ping block has been fully dispatched */
+        bool            is_fully_dispatched();
         /* Time this ping block finished dispatching.  Returns 0 if not fully dispatched */
         struct timespec get_dispatch_done_time();
         /* Time since fully dispatching this ping block.  Returns 0 if not fully dispatched */
         struct timespec time_since_dispatch();
+        /* Blocks until dispatching is done */
+        void            wait_dispatch_done();
     };
   }
 }
