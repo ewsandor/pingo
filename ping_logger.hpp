@@ -43,10 +43,10 @@ namespace sandor_laboratories
     class ping_logger_c
     {
       private:
-        pthread_mutex_t                 queue_mutex;
+        pthread_mutex_t                 queue_mutex = PTHREAD_MUTEX_INITIALIZER;
         std::queue<ping_logger_entry_s> log_queue;
 
-        pthread_mutex_t                 data_mutex;
+        pthread_mutex_t                 data_mutex = PTHREAD_MUTEX_INITIALIZER;
         std::deque<ping_block_c>        ping_block_queue;
 
       public:

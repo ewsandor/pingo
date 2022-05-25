@@ -39,8 +39,6 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
 {
   unsigned int i;
 
-  assert(0 == pthread_mutex_init(&mutex, NULL));
-
   assert(0 == pthread_mutex_lock(&mutex));
 
   fully_dispatched = false;

@@ -36,10 +36,10 @@ namespace sandor_laboratories
         const ping_block_config_s  config;
         ping_block_entry_s        *entry;
 
-        bool                fully_dispatched;
-        struct timespec     dispatch_done_time;
+        bool                       fully_dispatched;
+        struct timespec            dispatch_done_time;
 
-        pthread_mutex_t     mutex;
+        pthread_mutex_t            mutex = PTHREAD_MUTEX_INITIALIZER;
 
       public:
         static void init_config(ping_block_config_s*);
