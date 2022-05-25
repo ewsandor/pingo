@@ -3,7 +3,6 @@
 
 #include <deque>
 #include <pthread.h>
-#include <queue>
 
 #include "ping_block.hpp"
 
@@ -40,14 +39,17 @@ namespace sandor_laboratories
 
     #define PING_LOGGER_MAX_NUM_PING_BLOCKS 5
 
+    typedef std::deque<ping_logger_entry_s> log_queue_t;
+    typedef std::deque<ping_block_c*>       ping_block_queue_t;
+
     class ping_logger_c
     {
       private:
-        pthread_mutex_t                 queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-        std::queue<ping_logger_entry_s> log_queue;
+        pthread_mutex_t    queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+        log_queue_t        log_queue;
 
-        pthread_mutex_t                 data_mutex = PTHREAD_MUTEX_INITIALIZER;
-        std::deque<ping_block_c>        ping_block_queue;
+        pthread_mutex_t    data_mutex = PTHREAD_MUTEX_INITIALIZER;
+        ping_block_queue_t ping_block_queue;
 
       public:
     };
