@@ -34,12 +34,24 @@ void ping_block_c::init_config(ping_block_config_s* new_config)
   }
 }
 
+inline void ping_block_c::lock()
+{
+  assert(0 == pthread_mutex_lock(&mutex));
+}
+inline void ping_block_c::unlock()
+{
+  assert(0 == pthread_mutex_unlock(&mutex));
+}
+
+
 ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, const ping_block_config_s *init_config)
   : first_address(first_address), address_count(address_count), config(*init_config)
 {
   unsigned int i;
 
-  assert(0 == pthread_mutex_lock(&mutex));
+  assert(0 == pthread_mutex_init(&mutex, NULL));
+
+  lock();
 
   fully_dispatched = false;
   dispatch_done_time = {0};
@@ -51,18 +63,18 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
     entry[i].ping_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
   }
 
-  assert(0 == pthread_mutex_unlock(&mutex));
+  unlock();
 }
 ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count)
   : ping_block_c(first_address, address_count, &default_ping_block_config) {};
 
 ping_block_c::~ping_block_c()
 {
-  assert(0 == pthread_mutex_lock(&mutex));
+  lock();
 
   free(entry);
 
-  assert(0 == pthread_mutex_unlock(&mutex));
+  unlock();
 
   assert(0 == pthread_mutex_destroy(&mutex));
 }
@@ -77,7 +89,7 @@ bool ping_block_c::log_ping_time(uint32_t address, unsigned int ping_time)
   {
     ret_val = true;
 
-    assert(0 == pthread_mutex_lock(&mutex));
+    lock();
 
     log_entry = &entry[(address-get_first_address())];
     
@@ -85,7 +97,7 @@ bool ping_block_c::log_ping_time(uint32_t address, unsigned int ping_time)
       (ping_time<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
        ping_time:PINGO_BLOCK_PING_TIME_NO_RESPONSE;
 
-    assert(0 == pthread_mutex_unlock(&mutex));
+    unlock();
   }
 
   return ret_val;
@@ -172,10 +184,10 @@ bool ping_block_c::dispatch()
       ret_val = false;
     }
 
-    assert(0 == pthread_mutex_lock(&mutex));
+    lock();
     dispatch_done_time = dispatch_done_time_temp;
     fully_dispatched = true;
-    assert(0 == pthread_mutex_unlock(&mutex));
+    unlock();
  
     if(config.verbose)
     {
@@ -192,9 +204,9 @@ struct timespec ping_block_c::get_dispatch_done_time()
 {
   struct timespec ret_val;
 
-  assert(0 == pthread_mutex_lock(&mutex));
+  lock();
   ret_val = dispatch_done_time;
-  assert(0 == pthread_mutex_unlock(&mutex));
+  unlock();
 
   return ret_val;
 }

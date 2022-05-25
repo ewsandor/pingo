@@ -40,6 +40,8 @@ namespace sandor_laboratories
         struct timespec            dispatch_done_time;
 
         pthread_mutex_t            mutex = PTHREAD_MUTEX_INITIALIZER;
+        void                       lock();
+        void                       unlock();
 
       public:
         static void init_config(ping_block_config_s*);
