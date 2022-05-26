@@ -73,3 +73,16 @@ void ping_logger_c::wait_for_ping_block()
 
   unlock_ping_block();
 }
+
+unsigned int ping_logger_c::get_num_ping_blocks()
+{
+  unsigned int ret_val = 0;
+
+  lock_ping_block();
+
+  ret_val = ping_block_queue.size();
+
+  unlock_ping_block();
+  
+  return ret_val;
+}

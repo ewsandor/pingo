@@ -67,43 +67,54 @@ void *writer_thread_f(void* arg)
 {
   ping_logger_c *ping_logger = (ping_logger_c*) arg;
   ping_block_c  *ping_block;
+  unsigned int ping_block_counter = 0;
   const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
   struct timespec remaining_soak_time, time_since_dispatch;
 
-  printf("Waiting for ping block.\n");
-  ping_logger->wait_for_ping_block();
-  printf("Ping block registered.\n");
-  ping_block = ping_logger->peek_ping_block();
-  ping_block->wait_dispatch_done();
-  printf("Ping block dispatched.\n");
-  time_since_dispatch = ping_block->time_since_dispatch();
-  if(diff_time_spec(&soak_time, &time_since_dispatch, &remaining_soak_time))
+  while(1)
   {
-    printf("Waiting %lu.%09lu seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
-    nanosleep(&remaining_soak_time, nullptr);
+    printf("Waiting for ping block.\n");
+    ping_logger->wait_for_ping_block();
+    printf("%u ping blocks registered.\n", ping_logger->get_num_ping_blocks());
+    ping_block = ping_logger->peek_ping_block();
+    ping_block->wait_dispatch_done();
+    printf("Ping block %u dispatched.\n", ping_block_counter);
+    time_since_dispatch = ping_block->time_since_dispatch();
+    if(diff_time_spec(&soak_time, &time_since_dispatch, &remaining_soak_time))
+    {
+      printf("Waiting %lu.%09lu seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
+      nanosleep(&remaining_soak_time, nullptr);
+    }
+    assert(ping_block == ping_logger->pop_ping_block());
+    time_since_dispatch = ping_block->time_since_dispatch();
+    printf("Soaked %lu.%09lu seconds.\n", time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec);
+    printf("Deleted ping block.\n");
+    delete ping_block;
+    ping_block_counter++;
   }
-  assert(ping_block == ping_logger->pop_ping_block());
-  time_since_dispatch = ping_block->time_since_dispatch();
-  printf("Soaked %lu.%09lu seconds.\n", time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec);
-  printf("Deleted ping block.\n");
-  delete ping_block;
-
-  exit(0);
 
   return nullptr;
 }
 
 void *send_thread_f(void* arg)
 {
-  ping_block_config_s  ping_block_config;
-  ping_block_c        *ping_block;
-  ping_logger_c       *ping_logger = (ping_logger_c*) arg;
+  ping_block_config_s    ping_block_config;
+  ping_block_c          *ping_block;
+  ping_logger_c         *ping_logger = (ping_logger_c*) arg;
+  uint32_t               ping_block_first_address = dest_base_address;
+  const struct timespec  cool_down = {.tv_sec = 5, .tv_nsec = 0};
 
   ping_block_c::init_config(&ping_block_config); 
-  ping_block = new ping_block_c(dest_base_address, 65536, &ping_block_config);
+  ping_block_config.verbose = false;
 
-  ping_logger->push_ping_block(ping_block);
-  ping_block->dispatch();
+  while(1)
+  {
+    ping_block = new ping_block_c(ping_block_first_address, 65536, &ping_block_config);
+    ping_block_first_address = ping_block->get_last_address();
+    ping_logger->push_ping_block(ping_block);
+    ping_block->dispatch();
+    nanosleep(&cool_down, nullptr);
+  }
 
   return nullptr;
 }
@@ -120,6 +131,7 @@ void *recv_thread_f(void*)
   struct timeval recv_timeout;
   unsigned int recv_timeouts = 0;
   ssize_t recv_bytes;
+  const bool verbose = false;
 
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
@@ -158,7 +170,10 @@ void *recv_thread_f(void*)
       {
         case EWOULDBLOCK:
         {
-          printf("Waiting for packets. Timeouts %u\n", ++recv_timeouts);
+          if(verbose)
+          {
+            printf("Waiting for packets. Timeouts %u\n", ++recv_timeouts);
+          }
           break;
         }
         default:
@@ -181,19 +196,28 @@ void *recv_thread_f(void*)
       {
         icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
         ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer, sizeof(ip_string_buffer));
-        printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
-                icmp_packet_meta.header_valid,
-                ip_string_buffer,
-                icmp_packet_meta.header.type, 
-                icmp_packet_meta.header.code, 
-                icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
-                icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
-                icmp_packet_meta.payload_size);
-        if(icmp_packet_meta.header_valid && (icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
+        if(icmp_packet_meta.header_valid && icmp_packet_meta.header.type == ICMP_TYPE_ECHO_REPLY)
         {
-          pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
-          diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
-          printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+          if(verbose)
+          {
+            printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
+                    icmp_packet_meta.header_valid,
+                    ip_string_buffer,
+                    icmp_packet_meta.header.type, 
+                    icmp_packet_meta.header.code, 
+                    icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
+                    icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
+                    icmp_packet_meta.payload_size);
+          }
+          if(icmp_packet_meta.header_valid && (icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
+          {
+            pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
+            diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
+            if(verbose)
+            {
+              printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+            }
+          }
         }
       }
     }

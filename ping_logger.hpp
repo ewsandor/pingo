@@ -66,6 +66,8 @@ namespace sandor_laboratories
         ping_block_c* pop_ping_block();
         /* Blocks until ping block is added to the logger database */
         void          wait_for_ping_block();
+        /* Returns the number or registered ping blocks */
+        unsigned int  get_num_ping_blocks();
     };
   }
 }
