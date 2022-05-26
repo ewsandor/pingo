@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include "icmp.hpp"
 #include "ipv4.hpp"
 #include "ping_block.hpp"
+#include "ping_logger.hpp"
 #include "pingo.hpp"
 
 using namespace sandor_laboratories::pingo;
@@ -23,21 +25,27 @@ bool sandor_laboratories::pingo::diff_time_spec(const struct timespec * a, const
 {
   bool ret_val = false;
   
-  if((a && b && diff) &&
-     ((a->tv_sec >  b->tv_sec) || 
-      ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec))))
+  if(a && b && diff)
   {
-    *diff = {0};
-    diff->tv_sec  = a->tv_sec-b->tv_sec;
-    diff->tv_nsec = a->tv_nsec;
-    if(b->tv_nsec > a->tv_nsec)
+    if( (a->tv_sec >  b->tv_sec) || 
+        ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec)))
     {
-      diff->tv_nsec += 1000000000;
-      diff->tv_sec--;
-    }
-    diff->tv_nsec -= b->tv_nsec;
+      *diff = {0};
+      diff->tv_sec  = a->tv_sec-b->tv_sec;
+      diff->tv_nsec = a->tv_nsec;
+      if(b->tv_nsec > a->tv_nsec)
+      {
+        diff->tv_nsec += 1000000000;
+        diff->tv_sec--;
+      }
+      diff->tv_nsec -= b->tv_nsec;
 
-    ret_val = true;
+      ret_val = true;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null diff_time_spec input. a %p b %p diff %p", a, b, diff);
   }
 
   return ret_val;
@@ -55,17 +63,47 @@ void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_
   }
 }
 
-void *send_thread_f(void*)
+void *writer_thread_f(void* arg)
+{
+  ping_logger_c *ping_logger = (ping_logger_c*) arg;
+  ping_block_c  *ping_block;
+  const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
+  struct timespec remaining_soak_time, time_since_dispatch;
+
+  printf("Waiting for ping block.\n");
+  ping_logger->wait_for_ping_block();
+  printf("Ping block registered.\n");
+  ping_block = ping_logger->peek_ping_block();
+  ping_block->wait_dispatch_done();
+  printf("Ping block dispatched.\n");
+  time_since_dispatch = ping_block->time_since_dispatch();
+  if(diff_time_spec(&soak_time, &time_since_dispatch, &remaining_soak_time))
+  {
+    printf("Waiting %lu.%09lu seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
+    nanosleep(&remaining_soak_time, nullptr);
+  }
+  assert(ping_block == ping_logger->pop_ping_block());
+  time_since_dispatch = ping_block->time_since_dispatch();
+  printf("Soaked %lu.%09lu seconds.\n", time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec);
+  printf("Deleted ping block.\n");
+  delete ping_block;
+
+  exit(0);
+
+  return nullptr;
+}
+
+void *send_thread_f(void* arg)
 {
   ping_block_config_s  ping_block_config;
   ping_block_c        *ping_block;
-  
+  ping_logger_c       *ping_logger = (ping_logger_c*) arg;
+
   ping_block_c::init_config(&ping_block_config); 
   ping_block = new ping_block_c(dest_base_address, 65536, &ping_block_config);
 
+  ping_logger->push_ping_block(ping_block);
   ping_block->dispatch();
-
-  delete ping_block;
 
   return nullptr;
 }
@@ -166,28 +204,13 @@ void *recv_thread_f(void*)
 
 int main(int argc, char *argv[])
 {
-  struct timespec clock_resolution = {0};
-  struct timespec loop_start = {0};
-  struct timespec loop_end = {0};
-  struct timespec time_diff = {0};
+  ping_logger_c ping_logger;
 
-  pthread_t send_thread, recv_thread;
+  pthread_t writer_thread, recv_thread, send_thread;
 
-
-  pthread_create( &recv_thread, NULL, recv_thread_f, nullptr);
-  get_time(&loop_start);
-  pthread_create( &send_thread, NULL, send_thread_f, nullptr);
-
-  pthread_join( send_thread, NULL);
-
-  get_time(&loop_end);
-  get_time(&clock_resolution);
-
-  printf("Loop start: %lu.%09lu\n", loop_start.tv_sec, loop_start.tv_nsec);
-  printf("Loop end:   %lu.%09lu\n", loop_end.tv_sec, loop_end.tv_nsec);
-  printf("Resolution: %lu.%09lu\n", clock_resolution.tv_sec, clock_resolution.tv_nsec);
-  diff_time_spec(&loop_end, &loop_start, &time_diff);
-  printf("Diff: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+  pthread_create(&writer_thread, NULL, writer_thread_f, &ping_logger);
+  pthread_create(&recv_thread,   NULL, recv_thread_f,   nullptr);
+  pthread_create(&send_thread,   NULL, send_thread_f,   &ping_logger);
 
   while('q' != getchar()) {}
 }
