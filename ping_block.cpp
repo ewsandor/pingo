@@ -155,11 +155,24 @@ bool ping_block_c::dispatch()
         send_sockaddr.sin_family      = AF_INET;
         send_sockaddr.sin_port        = htons(IPPROTO_ICMP);
         send_sockaddr.sin_addr.s_addr = htonl(pingo_payload.dest_address);
-        if(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
+        while(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
         {
           ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-          fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror( errno));
-          exit(1);
+          fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
+          switch(errno)
+          {
+            case ENOBUFS:
+            {
+              fprintf(stderr, "Retrying to send ping in 1s\n");
+              sleep(1);
+              break;
+            }
+            default:
+            {
+              exit(1);
+              break;
+            }
+          }
         }
         packet_id++;
         dest_address++;
