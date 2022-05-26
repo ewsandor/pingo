@@ -16,6 +16,35 @@
 
 using namespace sandor_laboratories::pingo;
 
+
+pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  exit_cond  = PTHREAD_COND_INITIALIZER;
+unsigned int exit_block_mask = 0;
+void sandor_laboratories::pingo::safe_exit(int status)
+{
+  assert(0 == pthread_mutex_lock(&exit_mutex));
+  while(exit_block_mask)
+  {
+    fprintf(((0 == status)?stdout:stderr), "Waiting for safe exit.  Exit block mask 0x%x\n", exit_block_mask);
+    pthread_cond_wait(&exit_cond, &exit_mutex);
+  }
+  exit(status);
+  assert(0 == pthread_mutex_unlock(&exit_mutex));
+}
+void sandor_laboratories::pingo::block_exit(exit_block_reason_e reason)
+{
+  assert(0 == pthread_mutex_lock(&exit_mutex));
+  exit_block_mask |= (1<<reason);
+  assert(0 == pthread_mutex_unlock(&exit_mutex));
+}
+void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
+{
+  assert(0 == pthread_mutex_lock(&exit_mutex));
+  exit_block_mask &= ~(1<<reason);
+  assert(0 == pthread_mutex_unlock(&exit_mutex));
+}
+
+
 //const uint32_t dest_base_address = (10<<24) | (73<<16) | (68<<8) | 0;
 //const uint32_t dest_base_address = (209<<24) | (131<<16) | (237<<8) | 0;
 const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
@@ -102,7 +131,7 @@ void *send_thread_f(void* arg)
   ping_block_c          *ping_block;
   ping_logger_c         *ping_logger = (ping_logger_c*) arg;
   uint32_t               ping_block_first_address = dest_base_address;
-  const struct timespec  cool_down = {.tv_sec = 5, .tv_nsec = 0};
+  const struct timespec  cool_down = {.tv_sec = 1, .tv_nsec = 0};
 
   ping_block_c::init_config(&ping_block_config); 
   ping_block_config.verbose = false;
@@ -150,7 +179,7 @@ void *recv_thread_f(void*)
         break;
       }
     }
-    exit(1);
+    safe_exit(1);
   }
 
   recv_timeout.tv_sec  = 1;
@@ -179,7 +208,7 @@ void *recv_thread_f(void*)
         default:
         {
           fprintf(stderr, "Failed to receive from socket.  errno %u: %s\n", errno, strerror(errno));
-          exit(1);
+          safe_exit(1);
           break;
         }
       }

@@ -169,7 +169,7 @@ bool ping_block_c::dispatch()
             }
             default:
             {
-              exit(1);
+              safe_exit(1);
               break;
             }
           }

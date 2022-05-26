@@ -25,8 +25,18 @@ namespace sandor_laboratories
       return clock_gettime(CLOCK_MONOTONIC_COARSE, out_timespec);
     }
 
+    /* String Utils */
     #define IP_STRING_SIZE 16
     void ip_string(uint32_t address, char* buffer, size_t buffer_size);
+
+    /* Exit Utils */
+    typedef enum
+    {
+      EXIT_BLOCK_WRITE_FILE_OPEN,
+    } exit_block_reason_e;
+    void safe_exit(int status);
+    void block_exit(exit_block_reason_e);
+    void unblock_exit(exit_block_reason_e);
 
   }
 }
