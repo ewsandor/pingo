@@ -68,7 +68,7 @@ void ping_logger_c::wait_for_ping_block()
 
   while(ping_block_queue.empty())
   {
-    pthread_cond_wait(&ping_block_ready_cond, &ping_block_mutex);
+    assert(0==pthread_cond_wait(&ping_block_ready_cond, &ping_block_mutex));
   }
 
   unlock_ping_block();

@@ -5,6 +5,7 @@
 #include <cstring>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -22,25 +23,46 @@ pthread_cond_t  exit_cond  = PTHREAD_COND_INITIALIZER;
 unsigned int exit_block_mask = 0;
 void sandor_laboratories::pingo::safe_exit(int status)
 {
-  assert(0 == pthread_mutex_lock(&exit_mutex));
-  while(exit_block_mask)
+  int mutex_code, cond_code;
+  struct timespec exit_timeout_abs;
+  clock_gettime(CLOCK_REALTIME, &exit_timeout_abs);
+  exit_timeout_abs.tv_sec += 5;
+
+  mutex_code = pthread_mutex_timedlock(&exit_mutex, &exit_timeout_abs);
+  if(mutex_code)
   {
-    fprintf(((0 == status)?stdout:stderr), "Waiting for safe exit.  Exit block mask 0x%x\n", exit_block_mask);
-    pthread_cond_wait(&exit_cond, &exit_mutex);
+    fprintf(stderr, "UNSAFE EXIT! Failed to lock exit mutex.  mutex_code %d %s\n", mutex_code, strerror(mutex_code));
+    exit(1);
   }
-  exit(status);
-  assert(0 == pthread_mutex_unlock(&exit_mutex));
+  else
+  {
+    while(exit_block_mask)
+    {
+      fprintf(((0 == status)?stdout:stderr), "Waiting for safe exit.  Exit block mask 0x%x\n", exit_block_mask);
+      cond_code = pthread_cond_timedwait(&exit_cond, &exit_mutex, &exit_timeout_abs);
+      if(cond_code)
+      {
+        fprintf(stderr, "UNSAFE EXIT! Failed to meet exit condition.  cond_code %d - %s\n", cond_code, strerror(cond_code));
+        exit(1);
+      }
+    }
+    fprintf(((0 == status)?stdout:stderr), "Exiting safely with status %d.\n", status);
+    exit(status);
+    assert(0 == pthread_mutex_unlock(&exit_mutex));
+  }
 }
 void sandor_laboratories::pingo::block_exit(exit_block_reason_e reason)
 {
   assert(0 == pthread_mutex_lock(&exit_mutex));
   exit_block_mask |= (1<<reason);
+  pthread_cond_broadcast(&exit_cond);
   assert(0 == pthread_mutex_unlock(&exit_mutex));
 }
 void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
 {
   assert(0 == pthread_mutex_lock(&exit_mutex));
   exit_block_mask &= ~(1<<reason);
+  pthread_cond_broadcast(&exit_cond);
   assert(0 == pthread_mutex_unlock(&exit_mutex));
 }
 
@@ -171,15 +193,16 @@ void *recv_thread_f(void*)
       case EPERM:
       {
         fprintf(stderr, "No permission to open socket.\n");
+        safe_exit(126);
         break;
       }
       default:
       {
         fprintf(stderr, "Failed to open socket.  errno %u: %s\n", errno, strerror(errno));
+        safe_exit(1);
         break;
       }
     }
-    safe_exit(1);
   }
 
   recv_timeout.tv_sec  = 1;
@@ -255,15 +278,31 @@ void *recv_thread_f(void*)
   return nullptr;
 }
 
+
+void interrupt_signal_handler(int signal) {
+  switch(signal)
+  {
+    default:
+    {
+      printf("Received signal %d\n", signal);
+      safe_exit(128+signal);
+    }
+  }
+} 
+
 int main(int argc, char *argv[])
 {
   ping_logger_c ping_logger;
-
   pthread_t writer_thread, recv_thread, send_thread;
+
+  signal(SIGINT,  interrupt_signal_handler);
+  signal(SIGTERM, interrupt_signal_handler);
 
   pthread_create(&writer_thread, NULL, writer_thread_f, &ping_logger);
   pthread_create(&recv_thread,   NULL, recv_thread_f,   nullptr);
   pthread_create(&send_thread,   NULL, send_thread_f,   &ping_logger);
 
   while('q' != getchar()) {}
+  
+  safe_exit(0);
 }

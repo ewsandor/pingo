@@ -33,6 +33,7 @@ namespace sandor_laboratories
     typedef enum
     {
       EXIT_BLOCK_WRITE_FILE_OPEN,
+      EXIT_BLOCK_INVALID,
     } exit_block_reason_e;
     void safe_exit(int status);
     void block_exit(exit_block_reason_e);

@@ -119,7 +119,21 @@ bool ping_block_c::dispatch()
 
   if(sockfd == -1)
   {
-    fprintf(stderr, "Failed to open socket to dispatch ping block.  errno %u: %s\n", errno, strerror(errno));
+    switch(errno)
+    {
+      case EPERM:
+      {
+        fprintf(stderr, "No permission to open socket for ping block dispatch.\n");
+        safe_exit(126);
+        break;
+      }
+      default:
+      {
+        fprintf(stderr, "Failed to open socket for ping block dispatch.  errno %u: %s\n", errno, strerror(errno));
+        safe_exit(1);
+        break;
+      }
+    }
   }
   else
   {
