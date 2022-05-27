@@ -153,7 +153,7 @@ void *send_thread_f(void* arg)
   ping_block_c          *ping_block;
   ping_logger_c         *ping_logger = (ping_logger_c*) arg;
   uint32_t               ping_block_first_address = dest_base_address;
-  const struct timespec  cool_down = {.tv_sec = 1, .tv_nsec = 0};
+  const struct timespec  cool_down = {.tv_sec = 0, .tv_nsec = 0};
 
   ping_block_c::init_config(&ping_block_config); 
   ping_block_config.verbose = false;

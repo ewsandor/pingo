@@ -85,7 +85,8 @@ bool ping_block_c::log_ping_time(uint32_t address, unsigned int ping_time)
   bool ret_val = false;
   ping_block_entry_s* log_entry = nullptr;
 
-  if((address-get_first_address()) < get_address_count())
+  if( (address >= get_first_address()) &&
+      ((address-get_first_address()) < get_address_count()))
   {
     ret_val = true;
 
@@ -116,6 +117,18 @@ bool ping_block_c::dispatch()
   struct timespec     dispatch_done_time_temp;
   char                ip_string_buffer[IP_STRING_SIZE];
   ipv4_word_t         buffer[IPV4_MAX_PACKET_SIZE_WORDS];
+
+  send_sockaddr            = {0};
+  send_sockaddr.sin_family = AF_INET;
+  send_sockaddr.sin_port   = htons(IPPROTO_ICMP);
+
+  memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
+  icmp_packet_meta.header.type = ICMP_TYPE_ECHO_REQUEST;
+  icmp_packet_meta.header.code = ICMP_CODE_ZERO;
+  icmp_packet_meta.header.rest_of_header.id_seq_num.identifier = config.identifier;
+  icmp_packet_meta.header_valid = true;
+  icmp_packet_meta.payload = (icmp_buffer_t*) &pingo_payload;
+  icmp_packet_meta.payload_size = sizeof(pingo_payload_t);
 
   if(sockfd == -1)
   {
@@ -150,25 +163,14 @@ bool ping_block_c::dispatch()
 
       for(i = 0; i < config.ping_batch_size; i++)
       {
-        memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
-
-        icmp_packet_meta.header.type = ICMP_TYPE_ECHO_REQUEST;
-        icmp_packet_meta.header.code = ICMP_CODE_ZERO;
-        icmp_packet_meta.header.rest_of_header.id_seq_num.identifier      = config.identifier;
+        send_sockaddr.sin_addr.s_addr = htonl(dest_address);
+        icmp_packet_meta.header.checksum = 0;
         icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
-        icmp_packet_meta.header_valid = true;
-        icmp_packet_meta.payload = (icmp_buffer_t*) &pingo_payload;
-        icmp_packet_meta.payload_size = sizeof(pingo_payload_t);
-
         pingo_payload.dest_address = dest_address;
         get_time(&pingo_payload.request_time);
 
         ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
 
-        send_sockaddr = {0};
-        send_sockaddr.sin_family      = AF_INET;
-        send_sockaddr.sin_port        = htons(IPPROTO_ICMP);
-        send_sockaddr.sin_addr.s_addr = htonl(pingo_payload.dest_address);
         while(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
         {
           ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));

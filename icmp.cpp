@@ -141,9 +141,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
   size_t        output_size = 0;
   uint_fast32_t computed_checksum = 0;
   icmp_buffer_t *write_ptr;
-  icmp_buffer_t *checksum_ptr;
-  uint16_t      htons_val;
-  uint32_t      htonl_val;
+  uint16_t      *checksum_ptr;
   size_t        tmp_size;
   uint16_t     *checksum_buffer;
   unsigned int  checksum_iterator;
@@ -161,8 +159,8 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
       *write_ptr = icmp_packet_meta->header.code;
       write_ptr++;
       /* Comeback to checksum later */
-      checksum_ptr = write_ptr;
-      write_ptr+=2;
+      checksum_ptr = (uint16_t*) write_ptr;
+      write_ptr+=sizeof(uint16_t);
       switch(icmp_packet_meta->header.type)
       {
         case ICMP_TYPE_ECHO_REQUEST:
@@ -172,36 +170,30 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
         case ICMP_TYPE_ADDRESS_MASK_REQUEST:
         case ICMP_TYPE_ADDRESS_MASK_REPLY:
         {
-          htons_val = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.identifier);
-          memcpy(write_ptr, &htons_val, sizeof(htons_val));
-          write_ptr+=sizeof(htons_val);
-          htons_val = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.sequence_number);
-          memcpy(write_ptr, &htons_val, sizeof(htons_val));
-          write_ptr+=sizeof(htons_val);
+          *(uint16_t*)write_ptr = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.identifier);
+          write_ptr+=sizeof(uint16_t);
+          *(uint16_t*)write_ptr = htons(icmp_packet_meta->header.rest_of_header.id_seq_num.sequence_number);
+          write_ptr+=sizeof(uint16_t);
           break;
         }
         case ICMP_TYPE_REDIRECT_MESSAGE:
         {
-          htonl_val = htonl(icmp_packet_meta->header.rest_of_header.redirect);
-          memcpy(write_ptr, &htonl_val, sizeof(htonl_val));
-          write_ptr+=sizeof(htonl_val);
+          *(uint32_t*)write_ptr = htonl(icmp_packet_meta->header.rest_of_header.redirect);
+          write_ptr+=sizeof(uint32_t);
           break;
         }
         case ICMP_TYPE_DESTINATION_UNREACHABLE:
         {
-          htons_val = htonl(icmp_packet_meta->header.rest_of_header.dest_unreachable.unused);
-          memcpy(write_ptr, &htons_val, sizeof(htons_val));
-          write_ptr+=sizeof(htons_val);
-          htons_val = htonl(icmp_packet_meta->header.rest_of_header.dest_unreachable.next_hop_mtu);
-          memcpy(write_ptr, &htons_val, sizeof(htons_val));
-          write_ptr+=sizeof(htons_val);
+          *(uint16_t*)write_ptr = htons(icmp_packet_meta->header.rest_of_header.dest_unreachable.unused);
+          write_ptr+=sizeof(uint16_t);
+          *(uint16_t*)write_ptr = htons(icmp_packet_meta->header.rest_of_header.dest_unreachable.next_hop_mtu);
+          write_ptr+=sizeof(uint16_t);
           break;
         }
         default:
         {
-          htonl_val = htonl(icmp_packet_meta->header.rest_of_header.unused);
-          memcpy(write_ptr, &htonl_val, sizeof(htonl_val));
-          write_ptr+=sizeof(htonl_val);
+          *(uint32_t*)write_ptr = htonl(icmp_packet_meta->header.rest_of_header.unused);
+          write_ptr+=sizeof(uint32_t);
           break;
         }
       }
@@ -228,8 +220,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
         tmp_size -= sizeof(uint8_t);
       }
       computed_checksum = ~((computed_checksum & 0xFFFF) + (computed_checksum>>16));
-      htons_val = htons(computed_checksum);
-      memcpy(checksum_ptr, &htons_val, sizeof(htons_val));
+      *checksum_ptr = htons(computed_checksum);
     }
     else
     {
