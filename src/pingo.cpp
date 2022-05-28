@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <cassert>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -176,6 +176,17 @@ void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_
   }
 }
 
+void *log_handler_thread_f(void* arg)
+{
+  ping_logger_c *ping_logger = (ping_logger_c*) arg;
+
+  while(1)
+  {
+    ping_logger->wait_for_log_entry();
+    ping_logger->process_log_entry();
+  }
+}
+
 void *writer_thread_f(void* arg)
 {
   ping_logger_c *ping_logger = (ping_logger_c*) arg;
@@ -236,8 +247,9 @@ void *send_thread_f(void* arg)
   return nullptr;
 }
 
-void *recv_thread_f(void*)
+void *recv_thread_f(void* arg)
 {
+  ping_logger_c         *ping_logger = (ping_logger_c*) arg;
   int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
   ipv4_packet_meta_s ipv4_packet_meta;
   icmp_packet_meta_s icmp_packet_meta;
@@ -249,7 +261,7 @@ void *recv_thread_f(void*)
   unsigned int recv_timeouts = 0;
   ssize_t recv_bytes;
   const bool verbose = false;
-  ping_logger_entry_s log_entry;
+  ping_log_entry_s log_entry;
   struct sockaddr_in src_addr;
   socklen_t addrlen;
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
@@ -257,7 +269,6 @@ void *recv_thread_f(void*)
   memset(&pingo_payload, 0, sizeof(pingo_payload));
   memset(&ping_reply_time, 0, sizeof(ping_reply_time));
   memset(&time_diff, 0, sizeof(time_diff));
-  memset(&log_entry, 0, sizeof(log_entry));
 
   if(sockfd == -1)
   {
@@ -336,7 +347,12 @@ void *recv_thread_f(void*)
                     (ipv4_packet_meta.header.source_ip == pingo_payload.dest_address) &&
                     (timespec_valid(&pingo_payload.request_time)) )
                 {
-                  diff_timespec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
+
+                  memset(&log_entry, 0, sizeof(log_entry));
+                  log_entry.header.type=PING_LOG_ENTRY_ECHO_REPLY;
+                  log_entry.data.echo_reply.payload = pingo_payload;
+                  diff_timespec(&ping_reply_time, &pingo_payload.request_time, &log_entry.data.echo_reply.reply_delay);
+                  ping_logger->push_log_entry(log_entry);
 
                   if(verbose)
                   {
@@ -367,7 +383,6 @@ void *recv_thread_f(void*)
             }
             default:
             {
-
               if(verbose)
               {
                 printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
@@ -416,7 +431,7 @@ void signal_handler(int signal)
 int main(int argc, char *argv[])
 {
   ping_logger_c ping_logger;
-  pthread_t writer_thread, recv_thread, send_thread;
+  pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
 
   UNUSED(argc);
   UNUSED(argv);
@@ -425,9 +440,10 @@ int main(int argc, char *argv[])
   signal(SIGTERM, signal_handler);
   signal(SIGQUIT, signal_handler);
 
-  pthread_create(&writer_thread, NULL, writer_thread_f, &ping_logger);
-  pthread_create(&recv_thread,   NULL, recv_thread_f,   nullptr);
-  pthread_create(&send_thread,   NULL, send_thread_f,   &ping_logger);
+  pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
+  pthread_create(&writer_thread,      NULL, writer_thread_f, &ping_logger);
+  pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
+  pthread_create(&send_thread,        NULL, send_thread_f,   &ping_logger);
 
   while('q' != getchar()) {}
   

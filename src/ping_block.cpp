@@ -83,7 +83,7 @@ ping_block_c::~ping_block_c()
 }
 
 
-bool ping_block_c::log_ping_time(uint32_t address, unsigned int ping_time)
+bool ping_block_c::log_ping_time(uint32_t address, uint_fast32_t reply_delay)
 {
   bool ret_val = false;
   ping_block_entry_s* log_entry = nullptr;
@@ -98,8 +98,8 @@ bool ping_block_c::log_ping_time(uint32_t address, unsigned int ping_time)
     log_entry = &entry[(address-get_first_address())];
     
     log_entry->ping_time = 
-      (ping_time<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
-       ping_time:PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+      (reply_delay<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
+       reply_delay:PINGO_BLOCK_PING_TIME_NO_RESPONSE;
 
     unlock();
   }

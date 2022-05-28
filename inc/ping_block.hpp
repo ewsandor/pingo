@@ -58,7 +58,7 @@ namespace sandor_laboratories
         inline uint32_t get_address_count() const {return address_count;};
         inline uint32_t get_last_address()  const {return (get_first_address()+get_address_count());};
 
-        bool log_ping_time(uint32_t address, unsigned int ping_time);
+        bool log_ping_time(uint32_t address, uint_fast32_t);
 
         /* Opens a IPv4 socket and dispatches ping echo requests for all IP address in this block */
         bool dispatch();

@@ -4,6 +4,7 @@
 #include <deque>
 #include <pthread.h>
 
+#include "pingo.hpp"
 #include "ping_block.hpp"
 
 namespace sandor_laboratories
@@ -12,34 +13,37 @@ namespace sandor_laboratories
   {
     typedef enum
     {
-      PING_LOGGER_ENTRY_INVALID,
-      PING_LOGGER_ENTRY_ECHO_REPLY,
-      PING_LOGGER_ENTRY_MAX,
+      PING_LOG_ENTRY_INVALID,
+      PING_LOG_ENTRY_ECHO_REPLY,
+      PING_LOG_ENTRY_MAX,
 
-    } ping_logger_entry_type_e; 
+    } ping_log_entry_type_e; 
 
     typedef struct 
     {
-      ping_logger_entry_type_e type;
-    } ping_logger_entry_header_s;
+      ping_log_entry_type_e type;
+    } ping_log_entry_header_s;
 
     typedef struct
     {
+      struct timespec reply_delay;
+      pingo_payload_t payload;
     } ping_logger_entry_echo_reply_s;
 
     typedef union
     {
       ping_logger_entry_echo_reply_s echo_reply;
-    } ping_logger_entry_data_u;
+    } ping_log_entry_data_u;
 
     typedef struct 
     {
-      ping_logger_entry_header_s header;
-    } ping_logger_entry_s;
+      ping_log_entry_header_s header;
+      ping_log_entry_data_u   data;
+    } ping_log_entry_s;
 
     #define PING_LOGGER_MAX_NUM_PING_BLOCKS 5
 
-    typedef std::deque<ping_logger_entry_s> log_queue_t;
+    typedef std::deque<ping_log_entry_s> log_queue_t;
     typedef std::deque<ping_block_c*>       ping_block_queue_t;
 
     class ping_logger_c
@@ -49,15 +53,30 @@ namespace sandor_laboratories
         pthread_cond_t     log_entry_ready_cond  = PTHREAD_COND_INITIALIZER;
         log_queue_t        log_entry_queue;
 
+        void lock_log_entry();
+        void unlock_log_entry();
+        /* Pops the oldest log entry from the log entry queue. Returns entry of type INVALID if queue is empty. */
+        ping_log_entry_s pop_log_entry();
+
+        void process_echo_reply_log_entry(ping_log_entry_s *);
+
         pthread_mutex_t    ping_block_mutex      = PTHREAD_MUTEX_INITIALIZER;
         pthread_cond_t     ping_block_ready_cond = PTHREAD_COND_INITIALIZER;
         ping_block_queue_t ping_block_queue;
         
         void lock_ping_block();
         void unlock_ping_block();
+
       public:
+        /* Pushes a log entry into the log database */
+        bool             push_log_entry(ping_log_entry_s);
+        /* Blocks until log entry is added to the logger database */
+        void             wait_for_log_entry();
+        /* Process the next log entry in the queue */
+        void             process_log_entry();
+
         /* Pushes a ping block into the logger database.  Pusher's is responsible to init and dispatch pushed ping block */
-        void          push_ping_block(ping_block_c*);
+        bool          push_ping_block(ping_block_c*);
         /* Returns a pointer to the oldest ping block in the logger database without popping.  Popper should NOT delete peeked ping block.
             Returns null if no ping blocks are in the logger database. */
         ping_block_c* peek_ping_block();
