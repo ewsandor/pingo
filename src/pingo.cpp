@@ -72,8 +72,22 @@ void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
 //const uint32_t dest_base_address = (209<<24) | (131<<16) | (237<<8) | 0;
 const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
 
+bool sandor_laboratories::pingo::timespec_valid(const struct timespec * test_timespec)
+{
+  bool ret_val = false;
+
+  if(test_timespec)
+  {
+    ret_val = ( (test_timespec->tv_sec >= 0) &&  
+                (test_timespec->tv_nsec >= 0) && 
+                (test_timespec->tv_nsec < 1000000000) );
+  }
+
+  return ret_val;
+}
+
 /* a-b=diff, returns false if input is null or b > a */
-bool sandor_laboratories::pingo::diff_time_spec(const struct timespec * a, const struct timespec * b, struct timespec * diff)
+bool sandor_laboratories::pingo::diff_timespec(const struct timespec * a, const struct timespec * b, struct timespec * diff)
 {
   bool ret_val = false;
   
@@ -96,7 +110,7 @@ bool sandor_laboratories::pingo::diff_time_spec(const struct timespec * a, const
   }
   else
   {
-    fprintf(stderr, "Null diff_time_spec input. a %p b %p diff %p", a, b, diff);
+    fprintf(stderr, "Null diff_timespec input. a %p b %p diff %p", a, b, diff);
   }
 
   return ret_val;
@@ -131,7 +145,7 @@ void *writer_thread_f(void* arg)
     ping_block->wait_dispatch_done();
     printf("Ping block %u dispatched.\n", ping_block_counter);
     time_since_dispatch = ping_block->time_since_dispatch();
-    if(diff_time_spec(&soak_time, &time_since_dispatch, &remaining_soak_time))
+    if(diff_timespec(&soak_time, &time_since_dispatch, &remaining_soak_time))
     {
       printf("Waiting %lu.%09lu seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
       nanosleep(&remaining_soak_time, nullptr);
@@ -178,7 +192,7 @@ void *recv_thread_f(void*)
   pingo_payload_t pingo_payload;
   struct timespec ping_reply_time;
   struct timespec time_diff;
-  char ip_string_buffer[IP_STRING_SIZE];
+  char ip_string_buffer_a[IP_STRING_SIZE], ip_string_buffer_b[IP_STRING_SIZE];
   struct timeval recv_timeout;
   unsigned int recv_timeouts = 0;
   ssize_t recv_bytes;
@@ -255,7 +269,7 @@ void *recv_thread_f(void*)
       if(ipv4_packet_meta.header_valid)
       {
         icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
-        ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer, sizeof(ip_string_buffer));
+        ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
         if(icmp_packet_meta.header_valid && icmp_packet_meta.header_valid)
         {
           switch(icmp_packet_meta.header.type)
@@ -265,12 +279,37 @@ void *recv_thread_f(void*)
               if((icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
               {
                 pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
-                diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
 
-                if(verbose)
+                if( (ICMP_IDENTIFIER == icmp_packet_meta.header.rest_of_header.id_seq_num.identifier) &&
+                    (ipv4_packet_meta.header.source_ip == pingo_payload.dest_address) &&
+                    (timespec_valid(&pingo_payload.request_time)) )
                 {
-                  printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+                  diff_timespec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
+
+                  if(verbose)
+                  {
+                    ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                    printf("Ping reply from %s in %lu.%09lums\n", ip_string_buffer_a, time_diff.tv_sec, time_diff.tv_nsec);
+                  }
                 }
+                else
+                {
+                  ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                  ip_string(ntohl(pingo_payload.dest_address), ip_string_buffer_b, sizeof(ip_string_buffer_b));
+                  fprintf(stderr, "Invalid echo reply payload from %s.  identifier 0x%x sequence %u pingo_dest_address %s pingo_request_time %lu.%09lums\n", 
+                          ip_string_buffer_a, 
+                          icmp_packet_meta.header.rest_of_header.id_seq_num.identifier, 
+                          icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number, 
+                          ip_string_buffer_b,
+                          pingo_payload.request_time.tv_sec,
+                          pingo_payload.request_time.tv_nsec);
+                }
+              }
+              else
+              {
+                ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                fprintf(stderr, "Invalid echo reply payload size from %s.  payload_size %lu bytes\n", 
+                        ip_string_buffer_a, icmp_packet_meta.payload_size);
               }
               break;
             }
@@ -281,7 +320,7 @@ void *recv_thread_f(void*)
               {
                 printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
                         icmp_packet_meta.header_valid,
-                        ip_string_buffer,
+                        ip_string_buffer_a,
                         icmp_packet_meta.header.type, 
                         icmp_packet_meta.header.code, 
                         icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
@@ -293,9 +332,9 @@ void *recv_thread_f(void*)
         }
         else
         {
-          ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer, sizeof(ip_string_buffer));
+          ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer_a, sizeof(ip_string_buffer_a));
           fprintf(stderr, "Invalid packet from %s.  IPv4 header valid %u ICMP header valid %u\n", 
-            ip_string_buffer, ipv4_packet_meta.header_valid, icmp_packet_meta.header_valid);
+            ip_string_buffer_a, ipv4_packet_meta.header_valid, icmp_packet_meta.header_valid);
         }
       }
     }
@@ -304,8 +343,8 @@ void *recv_thread_f(void*)
   return nullptr;
 }
 
-
-void signal_handler(int signal) {
+void signal_handler(int signal) 
+{
   switch(signal)
   {
     default:
