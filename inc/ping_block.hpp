@@ -9,12 +9,15 @@ namespace sandor_laboratories
 {
   namespace pingo
   {
-    #define PINGO_BLOCK_PING_TIME_NO_RESPONSE 0xFF
 
-    typedef struct __attribute__((packed))
+    typedef uint32_t reply_time_t;
+    #define PINGO_BLOCK_PING_TIME_NO_RESPONSE 0xFFFFFFFF
+
+    typedef struct
     {
+      bool reply_valid;
       /* Ping time in ms, -1 for no response */
-      uint16_t ping_time;
+      reply_time_t ping_time;
     } ping_block_entry_s;
 
     typedef struct 
@@ -26,7 +29,14 @@ namespace sandor_laboratories
       uint16_t        identifier;
 
     } ping_block_config_s;
-    
+
+    typedef struct 
+    {
+      unsigned int valid_replies;
+      reply_time_t min_reply_time;
+      reply_time_t mean_reply_time;
+      reply_time_t max_reply_time;
+    } ping_block_stats_s;
 
     class ping_block_c
     {
@@ -58,7 +68,8 @@ namespace sandor_laboratories
         inline uint32_t get_address_count() const {return address_count;};
         inline uint32_t get_last_address()  const {return (get_first_address()+get_address_count());};
 
-        bool log_ping_time(uint32_t address, uint_fast32_t);
+        /* Logs ping time.  Assumes ping reply is valid if called, but time may will be capped at PINGO_BLOCK_PING_TIME_NO_RESPONSE */
+        bool log_ping_time(uint32_t address, reply_time_t);
 
         /* Opens a IPv4 socket and dispatches ping echo requests for all IP address in this block */
         bool dispatch();
@@ -77,6 +88,9 @@ namespace sandor_laboratories
         struct timespec time_since_dispatch();
         /* Blocks until dispatching is done */
         void            wait_dispatch_done();
+
+        /* Returns stats from ping block data */
+        ping_block_stats_s get_stats();
     };
   }
 }

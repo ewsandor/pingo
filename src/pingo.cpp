@@ -195,6 +195,7 @@ void *writer_thread_f(void* arg)
   const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
   struct timespec remaining_soak_time, time_since_dispatch, dispatch_time;
   char ip_string_buffer[IP_STRING_SIZE];
+  ping_block_stats_s ping_block_stats;
 
   while(1)
   {
@@ -215,7 +216,11 @@ void *writer_thread_f(void* arg)
     }
     assert(ping_block == ping_logger->pop_ping_block());
     time_since_dispatch = ping_block->time_since_dispatch();
-    printf("Soaked %lu.%09lu seconds.\n", time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec);
+    ping_block_stats = ping_block->get_stats();
+    printf("Soaked %lu.%09lu seconds.  %u/%u (%u%%) replied (min:%u, mean:%u, max:%u)\n", 
+      time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec,
+      ping_block_stats.valid_replies, ping_block->get_address_count(), (ping_block_stats.valid_replies*100)/ping_block->get_address_count(),
+      ping_block_stats.min_reply_time, ping_block_stats.mean_reply_time, ping_block_stats.max_reply_time);
     printf("Deleted ping block.\n");
     delete ping_block;
     ping_block_counter++;

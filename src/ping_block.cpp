@@ -83,7 +83,7 @@ ping_block_c::~ping_block_c()
 }
 
 
-bool ping_block_c::log_ping_time(uint32_t address, uint_fast32_t reply_delay)
+bool ping_block_c::log_ping_time(uint32_t address, reply_time_t reply_delay)
 {
   bool ret_val = false;
   ping_block_entry_s* log_entry = nullptr;
@@ -96,6 +96,8 @@ bool ping_block_c::log_ping_time(uint32_t address, uint_fast32_t reply_delay)
     lock();
 
     log_entry = &entry[(address-get_first_address())];
+
+    log_entry->reply_valid = true;
     
     log_entry->ping_time = 
       (reply_delay<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
@@ -326,4 +328,49 @@ void ping_block_c::wait_dispatch_done()
   }
 
   unlock();
+}
+
+ping_block_stats_s ping_block_c::get_stats()
+{
+  ping_block_stats_s stats;
+  unsigned int i;
+
+  memset(&stats, 0, sizeof(stats));
+  stats.min_reply_time  = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+  stats.mean_reply_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+  stats.max_reply_time  = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+
+  lock();
+
+  for(i = 0; i < get_address_count(); i++)
+  {
+    if(entry[i].reply_valid)
+    {
+      stats.valid_replies++;
+
+      if((entry[i].ping_time < stats.min_reply_time) || (PINGO_BLOCK_PING_TIME_NO_RESPONSE == stats.min_reply_time))
+      {
+        stats.min_reply_time = entry[i].ping_time;
+      }
+      if((entry[i].ping_time > stats.max_reply_time) || (PINGO_BLOCK_PING_TIME_NO_RESPONSE == stats.max_reply_time))
+      {
+        stats.max_reply_time = entry[i].ping_time;
+      }
+
+      stats.mean_reply_time += entry[i].ping_time;
+     }
+  }
+
+  unlock();
+
+  if(stats.valid_replies)
+  {
+    stats.mean_reply_time /= stats.valid_replies;
+  }
+  else
+  {
+    stats.mean_reply_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+  }
+
+  return stats;
 }
