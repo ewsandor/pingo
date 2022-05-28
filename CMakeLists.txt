@@ -4,14 +4,17 @@ project(Pingo
         VERSION 0.0.1
         LANGUAGES CXX)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 add_compile_options(-Wall -Wextra -Werror)
 
 include_directories(inc)
 
-add_library(IPv4 src/ipv4.cpp)
-add_library(ICMP src/icmp.cpp)
-add_library(PingBlock src/ping_block.cpp)
-add_library(PingLogger src/ping_logger.cpp)
+add_library(IPv4       OBJECT src/ipv4.cpp)
+add_library(ICMP       OBJECT src/icmp.cpp)
+add_library(PingBlock  OBJECT src/ping_block.cpp)
+add_library(PingLogger OBJECT src/ping_logger.cpp)
 
 add_executable(pingo src/pingo.cpp)
-target_link_libraries(pingo PRIVATE IPv4 ICMP PingBlock PingLogger)
+target_link_libraries(pingo PRIVATE Threads::Threads IPv4 ICMP PingBlock PingLogger)
