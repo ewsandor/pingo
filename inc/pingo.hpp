@@ -4,12 +4,12 @@
 #include <cstdint>
 #include <cstdlib>
 
-#define ICMP_IDENTIFIER 0xEDED
-
 namespace sandor_laboratories
 {
   namespace pingo
   {
+    #define ICMP_IDENTIFIER 0xEDED
+
     #define UNUSED(x) (void)(x)
 
     typedef struct 

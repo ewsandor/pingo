@@ -2,14 +2,19 @@ cmake_minimum_required(VERSION 3.22)
 
 project(Pingo 
         VERSION 0.0.1
-        LANGUAGES CXX)
+        DESCRIPTION "A project to ping every single IPv4 address to experiment with basic networking in Linux. (ICMP, ip headers, raw sockets, etc)"
+        LANGUAGES CXX
+        HOMEPAGE_URL "https://git.sandorlaboratories.com/edward/pingo")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_compile_options(-Wall -Wextra -Werror)
 
-include_directories(inc)
+configure_file(inc/version.hpp.in version.hpp @ONLY)
+include_directories(${PROJECT_BINARY_BIN})
+
+include_directories(inc ${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(IPv4       OBJECT src/ipv4.cpp)
 add_library(ICMP       OBJECT src/icmp.cpp)

@@ -15,8 +15,14 @@
 #include "ping_block.hpp"
 #include "ping_logger.hpp"
 #include "pingo.hpp"
+#include "version.hpp"
 
 using namespace sandor_laboratories::pingo;
+
+const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
+                          PROJECT_DESCRIPTION "\n\n"
+                          "Options:\n"
+                          "-h: Display this help text\n";
 
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -438,13 +444,77 @@ void signal_handler(int signal)
   }
 } 
 
+typedef enum
+{
+  PINGO_ARGUMENT_UNSPECIFIED,
+  PINGO_ARGUMENT_VALID,
+  PINGO_ARGUMENT_INVALID,
+} pingo_argument_status_e;
+
+typedef struct 
+{
+  bool                    unexpected_arg;
+  pingo_argument_status_e help_request;
+} pingo_arguments_s;
+
+bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
+{
+  bool ret_val = true;
+  char o;
+
+  if(args)
+  {
+    memset(args, 0, sizeof(pingo_arguments_s));
+
+    while((o = getopt(argc, argv, "h")) != -1)
+    {
+      switch(o)
+      {
+        case 'h':
+        {
+          args->help_request = PINGO_ARGUMENT_VALID;
+          break;
+        }
+        case '?':
+        {
+          args->unexpected_arg = true;
+          break;
+        }
+        default:
+        {
+          ret_val = false;
+          break;
+        }
+      }
+    }
+  }
+  else
+  {
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 int main(int argc, char *argv[])
 {
+  pingo_arguments_s args;
   ping_logger_c ping_logger;
   pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
 
-  UNUSED(argc);
-  UNUSED(argv);
+  assert(parse_pingo_args(argc, argv, &args));
+
+  if((args.unexpected_arg) || (PINGO_ARGUMENT_UNSPECIFIED != args.help_request))
+  {
+    int status = (PINGO_ARGUMENT_VALID == args.help_request?0:1);
+    if(args.unexpected_arg)
+    {
+      status = 22;
+    }
+
+    printf("%s\n", help_string);
+    exit(status);
+  }
 
   signal(SIGINT,  signal_handler);
   signal(SIGTERM, signal_handler);
