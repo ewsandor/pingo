@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstdlib>
 
+#define ICMP_IDENTIFIER 0xEDED
+
 namespace sandor_laboratories
 {
   namespace pingo
@@ -19,8 +21,10 @@ namespace sandor_laboratories
     /* Time Utils */
     /* ms*1000us/ms*1000ns/us */
     #define MS_TO_NANOSEC(ms) (ms*1000*1000)
+    #define NANOSEC_TO_MS(ns) (ns/(1000*1000))
     /* a-b=diff, returns false if input is null or b > a */
-    bool diff_time_spec(const struct timespec * a, const struct timespec * b, struct timespec * diff);
+    bool diff_timespec(const struct timespec * a, const struct timespec * b, struct timespec * diff);
+    bool timespec_valid(const struct timespec *);
 
     inline int get_time(struct timespec * out_timespec)
     {
@@ -29,7 +33,7 @@ namespace sandor_laboratories
 
     /* String Utils */
     #define IP_STRING_SIZE 16
-    void ip_string(uint32_t address, char* buffer, size_t buffer_size);
+    void ip_string(uint32_t address, char* buffer, size_t buffer_size, char deliminator='.', bool leading_zero=false);
 
     /* Exit Utils */
     typedef enum

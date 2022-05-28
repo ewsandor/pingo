@@ -91,40 +91,88 @@ bool sandor_laboratories::pingo::diff_timespec(const struct timespec * a, const 
 {
   bool ret_val = false;
   
-  if(a && b && diff)
+  if(diff)
   {
-    if( (a->tv_sec >  b->tv_sec) || 
-        ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec)))
-    {
-      diff->tv_sec  = a->tv_sec-b->tv_sec;
-      diff->tv_nsec = a->tv_nsec;
-      if(b->tv_nsec > a->tv_nsec)
-      {
-        diff->tv_nsec += 1000000000;
-        diff->tv_sec--;
-      }
-      diff->tv_nsec -= b->tv_nsec;
+    memset(diff, 0, sizeof(*diff));
 
-      ret_val = true;
+    if(a && b)
+    {
+      if( (a->tv_sec >  b->tv_sec) || 
+          ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec)))
+      {
+        diff->tv_sec  = a->tv_sec-b->tv_sec;
+        diff->tv_nsec = a->tv_nsec;
+        if(b->tv_nsec > a->tv_nsec)
+        {
+          diff->tv_nsec += 1000000000;
+          diff->tv_sec--;
+        }
+        diff->tv_nsec -= b->tv_nsec;
+
+        ret_val = true;
+      }
+    }
+    else
+    {
+      fprintf(stderr, "Null diff_timespec input. a %p b %p", a, b);
     }
   }
   else
   {
-    fprintf(stderr, "Null diff_timespec input. a %p b %p diff %p", a, b, diff);
+    fprintf(stderr, "Null diff_timespec input. diff %p", diff);
   }
 
   return ret_val;
 }
 
-void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_t buffer_size)
+void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_t buffer_size, char deliminator, bool leading_zero)
 {
   if(buffer)
   {
-    snprintf(buffer, buffer_size, "%u.%u.%u.%u",
-    ((address>>24) & 0xFF),
-    ((address>>16) & 0xFF),
-    ((address>>8) & 0xFF),
-    ((address) & 0xFF));
+    if('.'==deliminator)
+    {
+      if(leading_zero)
+      {
+        snprintf(buffer, buffer_size, "%03u.%03u.%03u.%03u",
+          ((address>>24) & 0xFF),
+          ((address>>16) & 0xFF),
+          ((address>>8)  & 0xFF),
+          ((address)     & 0xFF));
+      }
+      else
+      {
+        snprintf(buffer, buffer_size, "%u.%u.%u.%u",
+          ((address>>24) & 0xFF),
+          ((address>>16) & 0xFF),
+          ((address>>8)  & 0xFF),
+          ((address)     & 0xFF));
+      }
+    }
+    else
+    {
+      if(leading_zero)
+      {
+        snprintf(buffer, buffer_size, "%03u%c%03u%c%03u%c%03u",
+          ((address>>24) & 0xFF),
+          deliminator,
+          ((address>>16) & 0xFF),
+          deliminator,
+          ((address>>8)  & 0xFF),
+          deliminator,
+          ((address)     & 0xFF));
+      }
+      else
+      {
+        snprintf(buffer, buffer_size, "%u%c%u%c%u%c%u",
+          ((address>>24) & 0xFF),
+          deliminator,
+          ((address>>16) & 0xFF),
+          deliminator,
+          ((address>>8)  & 0xFF),
+          deliminator,
+          ((address)     & 0xFF));
+      }
+    }
   }
 }
 
@@ -134,7 +182,8 @@ void *writer_thread_f(void* arg)
   ping_block_c  *ping_block;
   unsigned int ping_block_counter = 0;
   const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
-  struct timespec remaining_soak_time, time_since_dispatch;
+  struct timespec remaining_soak_time, time_since_dispatch, dispatch_time;
+  char ip_string_buffer[IP_STRING_SIZE];
 
   while(1)
   {
@@ -143,11 +192,14 @@ void *writer_thread_f(void* arg)
     printf("%u ping blocks registered.\n", ping_logger->get_num_ping_blocks());
     ping_block = ping_logger->peek_ping_block();
     ping_block->wait_dispatch_done();
-    printf("Ping block %u dispatched.\n", ping_block_counter);
+    dispatch_time = ping_block->get_dispatch_time();
+    ip_string(ping_block->get_first_address(), ip_string_buffer, sizeof(ip_string_buffer));
+    printf("Ping block %u starting at %s with %u IPs dispatched in %lu.%03lus.\n", 
+      ping_block_counter, ip_string_buffer, ping_block->get_address_count(), dispatch_time.tv_sec, NANOSEC_TO_MS(dispatch_time.tv_nsec));
     time_since_dispatch = ping_block->time_since_dispatch();
     if(diff_timespec(&soak_time, &time_since_dispatch, &remaining_soak_time))
     {
-      printf("Waiting %lu.%09lu seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
+      printf("Soaking for %lu.%09lu more seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
       nanosleep(&remaining_soak_time, nullptr);
     }
     assert(ping_block == ping_logger->pop_ping_block());
@@ -270,7 +322,7 @@ void *recv_thread_f(void*)
       {
         icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
         ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
-        if(icmp_packet_meta.header_valid && icmp_packet_meta.header_valid)
+        if(icmp_packet_meta.header_valid)
         {
           switch(icmp_packet_meta.header.type)
           {
@@ -288,15 +340,15 @@ void *recv_thread_f(void*)
 
                   if(verbose)
                   {
-                    ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
-                    printf("Ping reply from %s in %lu.%09lums\n", ip_string_buffer_a, time_diff.tv_sec, time_diff.tv_nsec);
+                    ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                    printf("Ping reply from %s in %lu.%09lus\n", ip_string_buffer_a, time_diff.tv_sec, time_diff.tv_nsec);
                   }
                 }
                 else
                 {
-                  ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
-                  ip_string(ntohl(pingo_payload.dest_address), ip_string_buffer_b, sizeof(ip_string_buffer_b));
-                  fprintf(stderr, "Invalid echo reply payload from %s.  identifier 0x%x sequence %u pingo_dest_address %s pingo_request_time %lu.%09lums\n", 
+                  ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                  ip_string(pingo_payload.dest_address, ip_string_buffer_b, sizeof(ip_string_buffer_b));
+                  fprintf(stderr, "Invalid echo reply payload from %s.  identifier 0x%x sequence %u pingo_dest_address %s pingo_request_time %lu.%09lus\n", 
                           ip_string_buffer_a, 
                           icmp_packet_meta.header.rest_of_header.id_seq_num.identifier, 
                           icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number, 
@@ -307,9 +359,9 @@ void *recv_thread_f(void*)
               }
               else
               {
-                ip_string(ntohl(ipv4_packet_meta.header.source_ip), ip_string_buffer_a, sizeof(ip_string_buffer_a));
-                fprintf(stderr, "Invalid echo reply payload size from %s.  payload_size %lu bytes\n", 
-                        ip_string_buffer_a, icmp_packet_meta.payload_size);
+                ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+                fprintf(stderr, "Invalid echo reply payload size from %s.  payload_size %lu expected %lu\n", 
+                        ip_string_buffer_a, icmp_packet_meta.payload_size, sizeof(pingo_payload_t));
               }
               break;
             }
@@ -333,9 +385,15 @@ void *recv_thread_f(void*)
         else
         {
           ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer_a, sizeof(ip_string_buffer_a));
-          fprintf(stderr, "Invalid packet from %s.  IPv4 header valid %u ICMP header valid %u\n", 
-            ip_string_buffer_a, ipv4_packet_meta.header_valid, icmp_packet_meta.header_valid);
+          fprintf(stderr, "Invalid packet from %s.  ICMP header valid %u\n", 
+            ip_string_buffer_a, icmp_packet_meta.header_valid);
         }
+      }
+      else
+      {
+        ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer_a, sizeof(ip_string_buffer_a));
+        fprintf(stderr, "Invalid packet from %s.  IPv4 header valid %u\n", 
+          ip_string_buffer_a, ipv4_packet_meta.header_valid);
       }
     }
   }
