@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -183,7 +184,9 @@ void *recv_thread_f(void*)
   unsigned int recv_timeouts = 0;
   ssize_t recv_bytes;
   const bool verbose = false;
-
+  ping_logger_entry_s log_entry;
+  struct sockaddr_in src_addr;
+  socklen_t addrlen;
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
   if(sockfd == -1)
@@ -213,7 +216,8 @@ void *recv_thread_f(void*)
   {
     memset(&buffer, 0, sizeof(buffer));
 
-    recv_bytes = recv(sockfd, &buffer, sizeof(buffer), 0);
+    recv_bytes = recvfrom(sockfd, &buffer, sizeof(buffer), 0, (struct sockaddr*) &src_addr, &addrlen);
+    assert(sizeof(struct sockaddr_in ) == addrlen);
     get_time(&ping_reply_time);
 
     if(-1 == recv_bytes)
@@ -248,28 +252,46 @@ void *recv_thread_f(void*)
       {
         icmp_packet_meta = parse_icmp_packet(&ipv4_packet_meta.payload);
         ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer, sizeof(ip_string_buffer));
-        if(icmp_packet_meta.header_valid && icmp_packet_meta.header.type == ICMP_TYPE_ECHO_REPLY)
+        if(icmp_packet_meta.header_valid && icmp_packet_meta.header_valid)
         {
-          if(verbose)
+          switch(icmp_packet_meta.header.type)
           {
-            printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
-                    icmp_packet_meta.header_valid,
-                    ip_string_buffer,
-                    icmp_packet_meta.header.type, 
-                    icmp_packet_meta.header.code, 
-                    icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
-                    icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
-                    icmp_packet_meta.payload_size);
-          }
-          if(icmp_packet_meta.header_valid && (icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
-          {
-            pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
-            diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
-            if(verbose)
+            case ICMP_TYPE_ECHO_REPLY:
             {
-              printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+              if((icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
+              {
+                pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
+                diff_time_spec(&ping_reply_time, &pingo_payload.request_time, &time_diff);
+
+                if(verbose)
+                {
+                  printf("Ping time: %lu.%09lu\n", time_diff.tv_sec, time_diff.tv_nsec);
+                }
+              }
+              break;
+            }
+            default:
+            {
+
+              if(verbose)
+              {
+                printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
+                        icmp_packet_meta.header_valid,
+                        ip_string_buffer,
+                        icmp_packet_meta.header.type, 
+                        icmp_packet_meta.header.code, 
+                        icmp_packet_meta.header.rest_of_header.id_seq_num.identifier,
+                        icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number,
+                        icmp_packet_meta.payload_size);
+              }
             }
           }
+        }
+        else
+        {
+          ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer, sizeof(ip_string_buffer));
+          fprintf(stderr, "Invalid packet from %s.  IPv4 header valid %u ICMP header valid %u\n", 
+            ip_string_buffer, ipv4_packet_meta.header_valid, icmp_packet_meta.header_valid);
         }
       }
     }
@@ -279,7 +301,7 @@ void *recv_thread_f(void*)
 }
 
 
-void interrupt_signal_handler(int signal) {
+void signal_handler(int signal) {
   switch(signal)
   {
     default:
@@ -295,8 +317,9 @@ int main(int argc, char *argv[])
   ping_logger_c ping_logger;
   pthread_t writer_thread, recv_thread, send_thread;
 
-  signal(SIGINT,  interrupt_signal_handler);
-  signal(SIGTERM, interrupt_signal_handler);
+  signal(SIGINT,  signal_handler);
+  signal(SIGTERM, signal_handler);
+  signal(SIGQUIT, signal_handler);
 
   pthread_create(&writer_thread, NULL, writer_thread_f, &ping_logger);
   pthread_create(&recv_thread,   NULL, recv_thread_f,   nullptr);
