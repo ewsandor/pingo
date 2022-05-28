@@ -41,10 +41,8 @@ namespace sandor_laboratories
       ping_log_entry_data_u   data;
     } ping_log_entry_s;
 
-    #define PING_LOGGER_MAX_NUM_PING_BLOCKS 5
-
     typedef std::deque<ping_log_entry_s> log_queue_t;
-    typedef std::deque<ping_block_c*>       ping_block_queue_t;
+    typedef std::deque<ping_block_c*>    ping_block_queue_t;
 
     class ping_logger_c
     {

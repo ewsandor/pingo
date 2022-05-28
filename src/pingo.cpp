@@ -68,9 +68,10 @@ void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
 }
 
 
-//const uint32_t dest_base_address = (10<<24) | (73<<16) | (68<<8) | 0;
-//const uint32_t dest_base_address = (209<<24) | (131<<16) | (237<<8) | 0;
-const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
+//const uint32_t dest_base_address = (10<<24) | (0<<16) | (0<<8) | 0;
+const uint32_t dest_base_address = (73<<24) | (0<<16) | (0<<8) | 0;
+//const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
+//const uint32_t dest_base_address = 0;
 
 bool sandor_laboratories::pingo::timespec_valid(const struct timespec * test_timespec)
 {
@@ -303,7 +304,7 @@ void *recv_thread_f(void* arg)
     memset(&buffer, 0, sizeof(buffer));
 
     recv_bytes = recvfrom(sockfd, &buffer, sizeof(buffer), 0, (struct sockaddr*) &src_addr, &addrlen);
-    assert(sizeof(struct sockaddr_in ) == addrlen);
+    
     get_time(&ping_reply_time);
 
     if(-1 == recv_bytes)
@@ -329,6 +330,10 @@ void *recv_thread_f(void* arg)
     else if(0 == recv_bytes)
     {
       printf("Empty packet.\n");
+    }
+    if(sizeof(struct sockaddr_in) != addrlen)
+    {
+      fprintf(stderr, "Received packet src_addr length unexpected.  addrlen %u expected %lu\n", addrlen, sizeof(struct sockaddr_in));
     }
     else
     {
