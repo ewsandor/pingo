@@ -82,7 +82,6 @@ bool sandor_laboratories::pingo::diff_time_spec(const struct timespec * a, const
     if( (a->tv_sec >  b->tv_sec) || 
         ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec)))
     {
-      *diff = {0};
       diff->tv_sec  = a->tv_sec-b->tv_sec;
       diff->tv_nsec = a->tv_nsec;
       if(b->tv_nsec > a->tv_nsec)
@@ -176,9 +175,9 @@ void *recv_thread_f(void*)
   int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
   ipv4_packet_meta_s ipv4_packet_meta;
   icmp_packet_meta_s icmp_packet_meta;
-  pingo_payload_t pingo_payload = {0};
-  struct timespec ping_reply_time = {0};
-  struct timespec time_diff = {0};
+  pingo_payload_t pingo_payload;
+  struct timespec ping_reply_time;
+  struct timespec time_diff;
   char ip_string_buffer[IP_STRING_SIZE];
   struct timeval recv_timeout;
   unsigned int recv_timeouts = 0;
@@ -188,6 +187,11 @@ void *recv_thread_f(void*)
   struct sockaddr_in src_addr;
   socklen_t addrlen;
   ipv4_word_t buffer[IPV4_MAX_PACKET_SIZE_WORDS];
+
+  memset(&pingo_payload, 0, sizeof(pingo_payload));
+  memset(&ping_reply_time, 0, sizeof(ping_reply_time));
+  memset(&time_diff, 0, sizeof(time_diff));
+  memset(&log_entry, 0, sizeof(log_entry));
 
   if(sockfd == -1)
   {
@@ -316,6 +320,9 @@ int main(int argc, char *argv[])
 {
   ping_logger_c ping_logger;
   pthread_t writer_thread, recv_thread, send_thread;
+
+  UNUSED(argc);
+  UNUSED(argv);
 
   signal(SIGINT,  signal_handler);
   signal(SIGTERM, signal_handler);

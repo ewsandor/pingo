@@ -4,6 +4,8 @@ project(Pingo
         VERSION 0.0.1
         LANGUAGES CXX)
 
+add_compile_options(-Wall -Wextra -Werror)
+
 include_directories(inc)
 
 add_library(IPv4 src/ipv4.cpp)

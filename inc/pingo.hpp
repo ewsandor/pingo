@@ -8,6 +8,8 @@ namespace sandor_laboratories
 {
   namespace pingo
   {
+    #define UNUSED(x) (void)(x)
+
     typedef struct 
     {
       uint32_t        dest_address;

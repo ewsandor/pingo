@@ -87,7 +87,8 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
 
 ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t buffer_size)
 {
-  ipv4_packet_meta_s packet_meta = {0};
+  ipv4_packet_meta_s packet_meta;
+  memset(&packet_meta, 0, sizeof(ipv4_packet_meta_s));
 
   if(buffer)
   {

@@ -54,7 +54,7 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
   lock();
 
   fully_dispatched = false;
-  dispatch_done_time = {0};
+  memset(&dispatch_done_time, 0, sizeof(dispatch_done_time));
 
   entry = (ping_block_entry_s*) calloc(address_count, sizeof(ping_block_entry_s));
 
@@ -111,14 +111,16 @@ bool ping_block_c::dispatch()
   int                 sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
   unsigned int        i, batch_index = 0, packet_id = 0;
   icmp_packet_meta_s  icmp_packet_meta;
-  pingo_payload_t     pingo_payload = {0};
+  pingo_payload_t     pingo_payload;
   uint32_t            dest_address = get_first_address();
-  struct sockaddr_in  send_sockaddr = {0};
+  struct sockaddr_in  send_sockaddr;
   struct timespec     dispatch_done_time_temp;
   char                ip_string_buffer[IP_STRING_SIZE];
   ipv4_word_t         buffer[IPV4_MAX_PACKET_SIZE_WORDS];
 
-  send_sockaddr            = {0};
+  memset(&pingo_payload, 0, sizeof(pingo_payload));
+
+  memset(&send_sockaddr, 0, sizeof(send_sockaddr));
   send_sockaddr.sin_family = AF_INET;
   send_sockaddr.sin_port   = htons(IPPROTO_ICMP);
 
@@ -242,7 +244,8 @@ bool ping_block_c::is_fully_dispatched()
 
 struct timespec ping_block_c::get_dispatch_done_time()
 {
-  struct timespec ret_val = {0};
+  struct timespec ret_val;
+  memset(&ret_val, 0, sizeof(ret_val));
 
   lock();
   if(fully_dispatched)
@@ -256,7 +259,9 @@ struct timespec ping_block_c::get_dispatch_done_time()
 
 struct timespec ping_block_c::time_since_dispatch()
 {
-  struct timespec dispatch_done_time_copy, time_now, ret_val = {0};
+  struct timespec dispatch_done_time_copy, time_now, ret_val;
+
+  memset(&ret_val, 0, sizeof(ret_val));
 
   if(is_fully_dispatched())
   {
