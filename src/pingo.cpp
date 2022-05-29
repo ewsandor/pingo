@@ -19,10 +19,43 @@
 
 using namespace sandor_laboratories::pingo;
 
+typedef enum
+{
+  PINGO_ARGUMENT_UNSPECIFIED,
+  PINGO_ARGUMENT_VALID,
+  PINGO_ARGUMENT_INVALID,
+} pingo_argument_status_e;
+
+typedef struct
+{
+  pingo_argument_status_e initial_ip_status;
+  uint32_t                initial_ip;
+
+  pingo_argument_status_e address_length_status;
+  uint32_t                address_length;
+
+  pingo_argument_status_e cooldown_status;
+  uint32_t                cooldown;
+
+} pingo_ping_block_arguments_s;
+
+typedef struct 
+{
+  bool                    unexpected_arg;
+
+  pingo_argument_status_e help_request;
+
+  pingo_ping_block_arguments_s ping_block_args;
+
+} pingo_arguments_s;
+
 const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           PROJECT_DESCRIPTION "\n\n"
                           "Options:\n"
-                          "-h: Display this help text\n";
+                          "-c: Cooldown time in milliseconds between ping block batches\n"
+                          "-f: Initial IP address to ping\n"
+                          "-s: Size of ping blocks\n"
+                          "-h: Display this Help text\n";
 
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -75,9 +108,9 @@ void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
 
 
 //const uint32_t dest_base_address = (10<<24) | (0<<16) | (0<<8) | 0;
-const uint32_t dest_base_address = (73<<24) | (0<<16) | (0<<8) | 0;
+//const uint32_t dest_base_address = (73<<24) | (0<<16) | (0<<8) | 0;
 //const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
-//const uint32_t dest_base_address = 0;
+const uint32_t dest_base_address = 0;
 
 bool sandor_laboratories::pingo::timespec_valid(const struct timespec * test_timespec)
 {
@@ -236,20 +269,45 @@ void *writer_thread_f(void* arg)
   return nullptr;
 }
 
+typedef struct 
+{
+  ping_logger_c                *ping_logger;
+  pingo_ping_block_arguments_s  ping_block_args;
+} send_thread_args_s;
+
 void *send_thread_f(void* arg)
 {
   ping_block_config_s    ping_block_config;
   ping_block_c          *ping_block;
-  ping_logger_c         *ping_logger = (ping_logger_c*) arg;
-  uint32_t               ping_block_first_address = dest_base_address;
+  send_thread_args_s    *send_thread_args = (send_thread_args_s*) arg;
+  ping_logger_c         *ping_logger;
+  uint32_t               ping_block_first_address = 0;
+  unsigned int           ping_block_address_count = 65536;
   const struct timespec  cool_down = {.tv_sec = 0, .tv_nsec = 0};
+
+  assert(send_thread_args);
+  assert(send_thread_args->ping_logger);
+  ping_logger = send_thread_args->ping_logger;
 
   ping_block_c::init_config(&ping_block_config); 
   ping_block_config.verbose = false;
 
+  if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.initial_ip_status)
+  {
+    ping_block_first_address = send_thread_args->ping_block_args.initial_ip; 
+  }
+  if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.address_length_status)
+  {
+    ping_block_address_count = send_thread_args->ping_block_args.address_length; 
+  }
+  if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.cooldown_status)
+  {
+    MS_TO_TIMESPEC(send_thread_args->ping_block_args.cooldown, ping_block_config.ping_batch_cooldown); 
+  }
+
   while(1)
   {
-    ping_block = new ping_block_c(ping_block_first_address, 65536, &ping_block_config);
+    ping_block = new ping_block_c(ping_block_first_address, ping_block_address_count, &ping_block_config);
     ping_block_first_address = ping_block->get_last_address();
     ping_logger->push_ping_block(ping_block);
     ping_block->dispatch();
@@ -444,35 +502,67 @@ void signal_handler(int signal)
   }
 } 
 
-typedef enum
-{
-  PINGO_ARGUMENT_UNSPECIFIED,
-  PINGO_ARGUMENT_VALID,
-  PINGO_ARGUMENT_INVALID,
-} pingo_argument_status_e;
-
-typedef struct 
-{
-  bool                    unexpected_arg;
-  pingo_argument_status_e help_request;
-} pingo_arguments_s;
 
 bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
 {
   bool ret_val = true;
-  char o;
+  char o,c;
 
   if(args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "h")) != -1)
+    while((o = getopt(argc, argv, "c:hi:s:")) != -1)
     {
       switch(o)
       {
-        case 'h':
+        case 'c':
+        {
+          if((sscanf(optarg, "%u%c", &args->ping_block_args.cooldown, &c) == 1))
+          {
+            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-s %s: ping block cooldown format incorrect.  Expected ms as decimal integer.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+          break;
+        }
+         case 'h':
         {
           args->help_request = PINGO_ARGUMENT_VALID;
+          break;
+        }
+        case 'i':
+        {
+          uint8_t ip_a, ip_b, ip_c, ip_d;
+          if(sscanf(optarg, "%hhu.%hhu.%hhu.%hhu%c", &ip_a, &ip_b, &ip_c, &ip_d, &c) == 4)
+          {
+            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_VALID;
+            args->ping_block_args.initial_ip = (ip_a<<24) | (ip_b<<16) | (ip_c<<8) | (ip_d);
+          }
+          else
+          {
+            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-i %s: initial IP address format incorrect.  Expected IP in decimal format \'###.###.###.###\'.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+          break;
+        }
+        case 's':
+        {
+          if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &c) == 1))
+          {
+            args->ping_block_args.address_length_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->ping_block_args.address_length_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-s %s: ping block size format incorrect.  Expected decimal integer.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
           break;
         }
         case '?':
@@ -501,6 +591,8 @@ int main(int argc, char *argv[])
   pingo_arguments_s args;
   ping_logger_c ping_logger;
   pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
+  send_thread_args_s send_thread_args;
+
 
   assert(parse_pingo_args(argc, argv, &args));
 
@@ -516,6 +608,10 @@ int main(int argc, char *argv[])
     exit(status);
   }
 
+  memset(&send_thread_args, 0, sizeof(send_thread_args));
+  send_thread_args.ping_block_args = args.ping_block_args;
+  send_thread_args.ping_logger = &ping_logger;
+
   signal(SIGINT,  signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGQUIT, signal_handler);
@@ -523,7 +619,7 @@ int main(int argc, char *argv[])
   pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
   pthread_create(&writer_thread,      NULL, writer_thread_f, &ping_logger);
   pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
-  pthread_create(&send_thread,        NULL, send_thread_f,   &ping_logger);
+  pthread_create(&send_thread,        NULL, send_thread_f,   &send_thread_args);
 
   while('q' != getchar()) {}
   

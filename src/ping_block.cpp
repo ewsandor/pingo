@@ -24,6 +24,7 @@ static const ping_block_config_s default_ping_block_config =
       },
     .socket_ttl      = 255,
     .identifier      = ICMP_IDENTIFIER,
+    .send_attempts   = 5,
   };
 
 void ping_block_c::init_config(ping_block_config_s* new_config)
@@ -122,6 +123,7 @@ bool ping_block_c::dispatch()
   struct timespec     temp_time;
   char                ip_string_buffer[IP_STRING_SIZE];
   ipv4_word_t         buffer[IPV4_MAX_PACKET_SIZE_WORDS];
+  unsigned int        remaining_attempts;
 
   get_time(&temp_time);
 
@@ -177,6 +179,7 @@ bool ping_block_c::dispatch()
 
         for(i = 0; i < config.ping_batch_size; i++)
         {
+          remaining_attempts = config.send_attempts;
           send_sockaddr.sin_addr.s_addr = htonl(dest_address);
           icmp_packet_meta.header.checksum = 0;
           icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
@@ -191,15 +194,19 @@ bool ping_block_c::dispatch()
             fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
             switch(errno)
             {
-              case ENOBUFS:
+             default:
               {
-                fprintf(stderr, "Retrying to send ping in 1s\n");
-                sleep(1);
-                break;
-              }
-              default:
-              {
-                safe_exit(1);
+                remaining_attempts--;
+                if(0 == remaining_attempts)
+                {
+                  fprintf(stderr, "Aborting further attempts to send ping.\n");
+                  safe_exit(1);
+                }
+                else
+                {
+                  fprintf(stderr, "Reattempting to send ping in 1s.  %u attempts remaining\n", remaining_attempts);
+                  sleep(1);
+                }
                 break;
               }
             }

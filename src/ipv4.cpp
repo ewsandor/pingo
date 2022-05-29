@@ -59,20 +59,23 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
       }
     }
 
-    if( (output_header->ihl < 5) || 
+    if( (output_header->version != 4) ||
+        (output_header->ihl < 5) || 
         (output_header->total_length < IPV4_WORD_SIZE_TO_BYTE_SIZE(output_header->ihl)))
     {
-      fprintf(stderr, "Unexpected IPv4 header ihl (%u) or total_length (%u)\n",
-              output_header->ihl, output_header->total_length);
+      fprintf(stderr, "Unexpected IPv4 header version %u ihl %u or total_length %u\n",
+              output_header->version, output_header->ihl, output_header->total_length);
       ret_val = false;
     }
-
-    computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
-
-    if(0xFFFF != computed_checksum)
+    else
     {
-      fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%lx\n", computed_checksum);
-      ret_val = false;
+      computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
+
+      if(0xFFFF != computed_checksum)
+      {
+        fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%lx\n", computed_checksum);
+        ret_val = false;
+      }
     }
   }
   else

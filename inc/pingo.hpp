@@ -21,11 +21,12 @@ namespace sandor_laboratories
     /* Time Utils */
     /* ms*1000us/ms*1000ns/us */
     #define MS_TO_NANOSEC(ms) (ms*1000*1000)
+    #define MS_TO_SECONDS(ms) (ms/1000)
     #define SECONDS_TO_MS(s)  (s*1000)
     #define NANOSEC_TO_MS(ns) (ns/(1000*1000))
     #define TIMESPEC_TO_MS(timespec_in) ( SECONDS_TO_MS(timespec_in.tv_sec) + \
                                           NANOSEC_TO_MS(timespec_in.tv_nsec) )
-
+    #define MS_TO_TIMESPEC(ms, timespec_out) { timespec_out.tv_sec = MS_TO_SECONDS(ms); timespec_out.tv_nsec = (MS_TO_NANOSEC(ms) % (1000*1000*1000)); }
 
     /* a-b=diff, returns false if input is null or b > a */
     bool diff_timespec(const struct timespec * a, const struct timespec * b, struct timespec * diff);
