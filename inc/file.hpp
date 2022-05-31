@@ -74,6 +74,8 @@ namespace sandor_laboratories
       file_data_entry_payload_u payload;
     } file_data_entry_s;
 
+    typedef uint8_t file_checksum_t[FILE_CHECKSUM_SIZE];
+
     typedef struct __attribute__ ((packed))
     {
       /* Header details */
@@ -81,7 +83,7 @@ namespace sandor_laboratories
       /* Array of data entries.  Entries equals header address_count */
       file_data_entry_s *data;
       /* Checksum.  Assumed to be 0 for calculation */
-      uint8_t            checksum[FILE_CHECKSUM_SIZE];
+      file_checksum_t    checksum;
     } file_s;
 
     class file_manager_c
@@ -90,6 +92,8 @@ namespace sandor_laboratories
         char working_directory[FILE_PATH_MAX_LENGTH];
         const EVP_MD * md; 
         EVP_MD_CTX *mdctx;
+        
+        bool generate_file_checksum(const file_s*, file_checksum_t);
 
       public:
         file_manager_c(const char * working_directory);

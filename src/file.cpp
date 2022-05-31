@@ -23,6 +23,31 @@ file_manager_c::~file_manager_c()
   EVP_MD_CTX_free(mdctx);
 }
 
+bool file_manager_c::generate_file_checksum(const file_s *file, file_checksum_t checksum)
+{
+  bool ret_val = true;
+  unsigned char md_value[EVP_MAX_MD_SIZE];
+  unsigned int md_len;
+
+  if(file && checksum)
+  {
+    /* Reset checksum context */
+    EVP_DigestInit(mdctx, md);
+    EVP_DigestUpdate(mdctx, &file->header, sizeof(file->header));
+    EVP_DigestUpdate(mdctx, file->data, sizeof(file_data_entry_s)*file->header.address_count);
+    EVP_DigestFinal_ex(mdctx, md_value, &md_len);
+    assert(sizeof(file_checksum_t) == md_len);
+    memcpy(checksum, md_value, sizeof(file_checksum_t));
+  }
+  else
+  {
+    fprintf(stderr, "Null file (0x%p) or checksum (0x%p) pointer.\n", file, checksum);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
 {
   bool   ret_val = true;
@@ -31,41 +56,34 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
   char   filename[FILE_PATH_MAX_LENGTH+FILE_NAME_MAX_LENGTH];
   file_s file;
   FILE * fp;
-  unsigned char md_value[EVP_MAX_MD_SIZE];
-  unsigned int md_len;
 
   if(ping_block && (ping_block->get_address_count() > 0))
   {
     ip_string(ping_block->get_first_address(), ip_string_buffer, sizeof(ip_string_buffer), '_', true);
     snprintf(filename, sizeof(filename), "%s/%s.pingo", working_directory, ip_string_buffer);
 
+    /* Construct file */
     memset(&file, 0, sizeof(file));
-
-    /* Reset checksum context */
-    EVP_DigestInit(mdctx, md);
     /* Build header */
     file.header.signature     = FILE_SIGNATURE;
     file.header.version       = FILE_VERSION_0;
     file.header.first_address = ping_block->get_first_address();
     file.header.address_count = ping_block->get_address_count();
-    EVP_DigestUpdate(mdctx, &file.header, sizeof(file.header));
     /* Fill data */
     file.data = (file_data_entry_s*) calloc(sizeof(file_data_entry_s), file.header.address_count);
     for(i = 0; i < ping_block->get_address_count(); i++)
     {
     }
-    EVP_DigestUpdate(mdctx, file.data, sizeof(file_data_entry_s)*file.header.address_count);
     /* Fill checksum */
-    EVP_DigestFinal_ex(mdctx, md_value, &md_len);
-    assert(sizeof(file.checksum) == md_len);
-    memcpy(file.checksum, md_value, sizeof(file.checksum));
+    generate_file_checksum(&file, file.checksum);
 
     block_exit(EXIT_BLOCK_WRITE_FILE_OPEN);
     if((fp = fopen(filename, "wb")))
     {
-      assert(1                         == fwrite(&file.header, sizeof(file.header), 1, fp));
-      assert(file.header.address_count == fwrite(file.data, sizeof(file_data_entry_s), file.header.address_count, fp));
-      assert(1                         == fwrite(file.checksum, sizeof(file.checksum), 1, fp));
+      assert(1 == fwrite(&file.header, sizeof(file.header), 1, fp));
+      assert(file.header.address_count == 
+                  fwrite(file.data, sizeof(file_data_entry_s), file.header.address_count, fp));
+      assert(1 == fwrite(file.checksum, sizeof(file.checksum), 1, fp));
       assert(0 == fclose(fp));
     }
     else
