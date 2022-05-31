@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "file.hpp"
 #include "icmp.hpp"
 #include "ipv4.hpp"
 #include "ping_block.hpp"
@@ -227,15 +228,29 @@ void *log_handler_thread_f(void* arg)
   }
 }
 
+typedef struct 
+{
+  ping_logger_c  *ping_logger;
+  file_manager_c *file_manager;
+} writer_thread_args_s;
+
 void *writer_thread_f(void* arg)
 {
-  ping_logger_c *ping_logger = (ping_logger_c*) arg;
+  writer_thread_args_s* writer_thread_args = (writer_thread_args_s*) arg;
+  ping_logger_c *ping_logger;
+  file_manager_c *file_manager;
   ping_block_c  *ping_block;
   unsigned int ping_block_counter = 0;
   const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
   struct timespec remaining_soak_time, time_since_dispatch, dispatch_time;
   char ip_string_buffer[IP_STRING_SIZE];
   ping_block_stats_s ping_block_stats;
+
+  assert(writer_thread_args);
+  ping_logger = writer_thread_args->ping_logger;
+  assert(ping_logger);
+  file_manager = writer_thread_args->file_manager;
+  assert(file_manager);
 
   while(1)
   {
@@ -261,8 +276,10 @@ void *writer_thread_f(void* arg)
       time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec,
       ping_block_stats.valid_replies, ping_block->get_address_count(), (ping_block_stats.valid_replies*100)/ping_block->get_address_count(),
       ping_block_stats.min_reply_time, ping_block_stats.mean_reply_time, ping_block_stats.max_reply_time);
-    printf("Deleted ping block.\n");
+    printf("Writing ping block to file");
+    file_manager->write_ping_block_to_file(ping_block);
     delete ping_block;
+    printf("Deleted ping block.\n");
     ping_block_counter++;
   }
 
@@ -591,8 +608,9 @@ int main(int argc, char *argv[])
   pingo_arguments_s args;
   ping_logger_c ping_logger;
   pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
+  file_manager_c *file_manager;
   send_thread_args_s send_thread_args;
-
+  writer_thread_args_s writer_thread_args;
 
   assert(parse_pingo_args(argc, argv, &args));
 
@@ -607,17 +625,22 @@ int main(int argc, char *argv[])
     printf("%s\n", help_string);
     exit(status);
   }
+  file_manager = new file_manager_c(".");
 
   memset(&send_thread_args, 0, sizeof(send_thread_args));
-  send_thread_args.ping_block_args = args.ping_block_args;
   send_thread_args.ping_logger = &ping_logger;
+  send_thread_args.ping_block_args = args.ping_block_args;
+
+  memset(&writer_thread_args, 0, sizeof(writer_thread_args));
+  writer_thread_args.ping_logger  = &ping_logger;
+  writer_thread_args.file_manager = file_manager;
 
   signal(SIGINT,  signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGQUIT, signal_handler);
 
   pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
-  pthread_create(&writer_thread,      NULL, writer_thread_f, &ping_logger);
+  pthread_create(&writer_thread,      NULL, writer_thread_f, &writer_thread_args);
   pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
   pthread_create(&send_thread,        NULL, send_thread_f,   &send_thread_args);
 
