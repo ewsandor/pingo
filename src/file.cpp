@@ -16,6 +16,7 @@ file_manager_c::file_manager_c(const char * wd)
 
 bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
 {
+  uint32_t i;
   bool   ret_val = true;
   char   ip_string_buffer[IP_STRING_SIZE];
   char   filename[FILE_PATH_MAX_LENGTH+FILE_NAME_MAX_LENGTH];
@@ -28,7 +29,7 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
     snprintf(filename, sizeof(filename), "%s/%s.pingo", working_directory, ip_string_buffer);
 
     block_exit(EXIT_BLOCK_WRITE_FILE_OPEN);
-    fp = fopen(filename, "w");
+    fp = fopen(filename, "wb");
 
     if(fp)
     {
@@ -41,7 +42,10 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
       fwrite(&file.header, sizeof(file.header), 1, fp);
 
       file.data = (file_data_entry_s*) calloc(sizeof(file_data_entry_s), file.header.address_count);
-      fwrite(&file.data, sizeof(file_data_entry_s), file.header.address_count, fp);
+      for(i = 0; i < ping_block->get_address_count(); i++)
+      {
+      }
+      fwrite(file.data, sizeof(file_data_entry_s), file.header.address_count, fp);
 
       fwrite(&file.checksum, sizeof(file.checksum), 1, fp);
 
