@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <linux/limits.h>
+#include <openssl/evp.h>
 
 #include "ping_block.hpp"
 
@@ -10,7 +11,7 @@ namespace sandor_laboratories
 {
   namespace pingo
   {
-    /* File signature to identify Pingo file "PINGO" in little endian */
+    /* File signature "PINGO" to identify Pingo file in little endian */
     #define FILE_SIGNATURE 0x4F474E4950
     /* MD5 checksums are 128bits (16 bytes) */
     #define MD5_SIZE 16
@@ -87,9 +88,12 @@ namespace sandor_laboratories
     {
       private:
         char working_directory[FILE_PATH_MAX_LENGTH];
+        const EVP_MD * md; 
+        EVP_MD_CTX *mdctx;
 
       public:
         file_manager_c(const char * working_directory);
+        ~file_manager_c();
 
         bool write_ping_block_to_file(ping_block_c*);
     };

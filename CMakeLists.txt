@@ -8,6 +8,8 @@ project(Pingo
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 
 add_compile_options(-Wall -Wextra -Werror)
 
@@ -23,4 +25,4 @@ add_library(PingBlock  OBJECT src/ping_block.cpp)
 add_library(PingLogger OBJECT src/ping_logger.cpp)
 
 add_executable(pingo src/pingo.cpp)
-target_link_libraries(pingo PRIVATE Threads::Threads File IPv4 ICMP PingBlock PingLogger)
+target_link_libraries(pingo PRIVATE OpenSSL::SSL Threads::Threads File IPv4 ICMP PingBlock PingLogger)
