@@ -276,7 +276,7 @@ void *writer_thread_f(void* arg)
       time_since_dispatch.tv_sec, time_since_dispatch.tv_nsec,
       ping_block_stats.valid_replies, ping_block->get_address_count(), (ping_block_stats.valid_replies*100)/ping_block->get_address_count(),
       ping_block_stats.min_reply_time, ping_block_stats.mean_reply_time, ping_block_stats.max_reply_time);
-    printf("Writing ping block to file");
+    printf("Writing ping block to file\n");
     file_manager->write_ping_block_to_file(ping_block);
     delete ping_block;
     printf("Deleted ping block.\n");

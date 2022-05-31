@@ -10,15 +10,16 @@ namespace sandor_laboratories
 {
   namespace pingo
   {
-    /* File signature to identify Pingo file "PINGO" */
-    #define FILE_SIGNATURE 0x50494E474F
+    /* File signature to identify Pingo file "PINGO" in little endian */
+    #define FILE_SIGNATURE 0x4F474E4950
     /* MD5 checksums are 128bits (16 bytes) */
     #define MD5_SIZE 16
     /* Checksum is MD5 */
     #define FILE_CHECKSUM_SIZE MD5_SIZE
 
     /* Maximum path length */
-    #define PATH_MAX_LENGTH PATH_MAX
+    #define FILE_NAME_MAX_LENGTH NAME_MAX
+    #define FILE_PATH_MAX_LENGTH PATH_MAX
 
     typedef enum
     {
@@ -85,7 +86,7 @@ namespace sandor_laboratories
     class file_manager_c
     {
       private:
-        char working_directory[PATH_MAX_LENGTH];
+        char working_directory[FILE_PATH_MAX_LENGTH];
 
       public:
         file_manager_c(const char * working_directory);
