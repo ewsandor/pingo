@@ -27,6 +27,8 @@ namespace sandor_laboratories
       struct timespec ping_batch_cooldown;
       unsigned int    socket_ttl;
       uint16_t        identifier;
+      bool            fixed_sequence_number;
+      uint16_t        sequence_number;
       unsigned int    send_attempts;
     } ping_block_config_s;
 

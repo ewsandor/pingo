@@ -308,6 +308,8 @@ void *send_thread_f(void* arg)
 
   ping_block_c::init_config(&ping_block_config); 
   ping_block_config.verbose = false;
+  ping_block_config.fixed_sequence_number = true;
+  ping_block_config.sequence_number = getpid();
 
   if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.initial_ip_status)
   {
@@ -348,6 +350,7 @@ void *recv_thread_f(void* arg)
   unsigned int recv_timeouts = 0;
   ssize_t recv_bytes;
   const bool verbose = false;
+  const uint16_t sequence_id = getpid();
   ping_log_entry_s log_entry;
   struct sockaddr_in src_addr;
   socklen_t addrlen;
@@ -435,6 +438,7 @@ void *recv_thread_f(void* arg)
                 pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
 
                 if( (ICMP_IDENTIFIER == icmp_packet_meta.header.rest_of_header.id_seq_num.identifier) &&
+                    (sequence_id == icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number) &&
                     (ipv4_packet_meta.header.source_ip == pingo_payload.dest_address) &&
                     (timespec_valid(&pingo_payload.request_time)) )
                 {
@@ -455,10 +459,12 @@ void *recv_thread_f(void* arg)
                 {
                   ip_string(ipv4_packet_meta.header.source_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
                   ip_string(pingo_payload.dest_address, ip_string_buffer_b, sizeof(ip_string_buffer_b));
-                  fprintf(stderr, "Invalid echo reply payload from %s.  identifier 0x%x sequence %u pingo_dest_address %s pingo_request_time %lu.%09lus\n", 
+                  fprintf(stderr, "Invalid echo reply payload from %s.  identifier 0x%x (expected 0x%x) sequence %u (expected %u) pingo_dest_address %s pingo_request_time %lu.%09lus\n", 
                           ip_string_buffer_a, 
                           icmp_packet_meta.header.rest_of_header.id_seq_num.identifier, 
+                          ICMP_IDENTIFIER,
                           icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number, 
+                          sequence_id,
                           ip_string_buffer_b,
                           pingo_payload.request_time.tv_sec,
                           pingo_payload.request_time.tv_nsec);

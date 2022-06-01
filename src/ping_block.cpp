@@ -24,6 +24,8 @@ static const ping_block_config_s default_ping_block_config =
       },
     .socket_ttl      = 255,
     .identifier      = ICMP_IDENTIFIER,
+    .fixed_sequence_number = false,
+    .sequence_number = 0,
     .send_attempts   = 5,
   };
 
@@ -208,7 +210,8 @@ bool ping_block_c::dispatch()
           remaining_attempts = config.send_attempts;
           send_sockaddr.sin_addr.s_addr = htonl(dest_address);
           icmp_packet_meta.header.checksum = 0;
-          icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = packet_id;
+          icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = 
+            (config.fixed_sequence_number?config.sequence_number:packet_id);
           pingo_payload.dest_address = dest_address;
           get_time(&pingo_payload.request_time);
 
