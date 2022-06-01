@@ -40,6 +40,16 @@ typedef struct
 
 } pingo_ping_block_arguments_s;
 
+typedef struct
+{
+  pingo_argument_status_e directory_status;
+  char                    directory[FILE_PATH_MAX_LENGTH];
+
+  pingo_argument_status_e soak_timeout_status;
+  unsigned int            soak_timeout;
+} pingo_writer_arguments_s;
+
+
 typedef struct 
 {
   bool                    unexpected_arg;
@@ -48,16 +58,19 @@ typedef struct
 
   pingo_ping_block_arguments_s ping_block_args;
 
+  pingo_writer_arguments_s writer_args;
+
 } pingo_arguments_s;
 
 const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           PROJECT_DESCRIPTION "\n\n"
                           "Options:\n"
                           "-c: Cooldown time in milliseconds between ping block batches\n"
-                          "-f: Initial IP address to ping\n"
+                          "-d: Directory to write ping data\n"
+                          "-i: Initial IP address to ping\n"
                           "-s: Size of ping blocks\n"
+                          "-t: Ping block soaking Timeout\n"
                           "-h: Display this Help text\n";
-
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  exit_cond  = PTHREAD_COND_INITIALIZER;
@@ -230,8 +243,9 @@ void *log_handler_thread_f(void* arg)
 
 typedef struct 
 {
-  ping_logger_c  *ping_logger;
-  file_manager_c *file_manager;
+  pingo_writer_arguments_s  args;
+  ping_logger_c            *ping_logger;
+  file_manager_c           *file_manager;
 } writer_thread_args_s;
 
 void *writer_thread_f(void* arg)
@@ -241,7 +255,7 @@ void *writer_thread_f(void* arg)
   file_manager_c *file_manager;
   ping_block_c  *ping_block;
   unsigned int ping_block_counter = 0;
-  const struct timespec soak_time = {.tv_sec = 60, .tv_nsec = 0};
+  struct timespec soak_time;
   struct timespec remaining_soak_time, time_since_dispatch, dispatch_time;
   char ip_string_buffer[IP_STRING_SIZE];
   ping_block_stats_s ping_block_stats;
@@ -251,6 +265,12 @@ void *writer_thread_f(void* arg)
   assert(ping_logger);
   file_manager = writer_thread_args->file_manager;
   assert(file_manager);
+
+  soak_time = 
+    {
+      .tv_sec = ((PINGO_ARGUMENT_VALID == writer_thread_args->args.soak_timeout_status)?writer_thread_args->args.soak_timeout:60), 
+      .tv_nsec = 0
+    };
 
   while(1)
   {
@@ -266,7 +286,7 @@ void *writer_thread_f(void* arg)
     time_since_dispatch = ping_block->time_since_dispatch();
     if(diff_timespec(&soak_time, &time_since_dispatch, &remaining_soak_time))
     {
-      printf("Soaking for %lu.%09lu more seconds.\n", remaining_soak_time.tv_sec, remaining_soak_time.tv_nsec);
+      printf("Soaking for %lu.%03lu more seconds.\n", remaining_soak_time.tv_sec, NANOSEC_TO_MS(remaining_soak_time.tv_nsec));
       nanosleep(&remaining_soak_time, nullptr);
     }
     assert(ping_block == ping_logger->pop_ping_block());
@@ -288,8 +308,8 @@ void *writer_thread_f(void* arg)
 
 typedef struct 
 {
-  ping_logger_c                *ping_logger;
   pingo_ping_block_arguments_s  ping_block_args;
+  ping_logger_c                *ping_logger;
 } send_thread_args_s;
 
 void *send_thread_f(void* arg)
@@ -535,7 +555,7 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:hi:s:")) != -1)
+    while((o = getopt(argc, argv, "c:d:hi:s:t:")) != -1)
     {
       switch(o)
       {
@@ -553,7 +573,13 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
           }
           break;
         }
-         case 'h':
+        case 'd':
+        {
+          args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
+          strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
+          break;
+        }
+        case 'h':
         {
           args->help_request = PINGO_ARGUMENT_VALID;
           break;
@@ -583,12 +609,26 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
           else
           {
             args->ping_block_args.address_length_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-s %s: ping block size format incorrect.  Expected decimal integer.\n\n", optarg);
+            fprintf(stderr, "-s %s: ping block size format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
             args->unexpected_arg = true;
           }
           break;
         }
-        case '?':
+        case 't':
+        {
+          if((sscanf(optarg, "%u%c", &args->writer_args.soak_timeout, &c) == 1))
+          {
+            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-t %s: soak timeout format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+          break;
+        }
+         case '?':
         {
           args->unexpected_arg = true;
           break;
@@ -631,13 +671,15 @@ int main(int argc, char *argv[])
     printf("%s\n", help_string);
     exit(status);
   }
-  file_manager = new file_manager_c(".");
+
+  file_manager = new file_manager_c((PINGO_ARGUMENT_VALID == args.writer_args.directory_status)?args.writer_args.directory:".");
 
   memset(&send_thread_args, 0, sizeof(send_thread_args));
-  send_thread_args.ping_logger = &ping_logger;
   send_thread_args.ping_block_args = args.ping_block_args;
+  send_thread_args.ping_logger     = &ping_logger;
 
   memset(&writer_thread_args, 0, sizeof(writer_thread_args));
+  writer_thread_args.args         = args.writer_args;
   writer_thread_args.ping_logger  = &ping_logger;
   writer_thread_args.file_manager = file_manager;
 
