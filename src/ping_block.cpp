@@ -110,6 +110,32 @@ bool ping_block_c::log_ping_time(uint32_t address, reply_time_t reply_delay)
   return ret_val;
 }
 
+bool ping_block_c::get_ping_block_entry(uint32_t address, ping_block_entry_s* ret_entry)
+{
+  bool ret_val = true;
+  if(ret_entry)
+  {
+    if( (address >= get_first_address()) &&
+        ((address-get_first_address()) < get_address_count()))
+    {
+      lock();
+      *ret_entry = entry[(address-get_first_address())];
+      unlock();
+    }
+    else
+    {
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null ret_entry pointer passed\n");
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool ping_block_c::dispatch()
 {
   bool ret_val = false;

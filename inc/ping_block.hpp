@@ -68,6 +68,9 @@ namespace sandor_laboratories
         inline uint32_t get_address_count() const {return address_count;};
         inline uint32_t get_last_address()  const {return (get_first_address()+get_address_count());};
 
+        /* Copies ping block entry for given address to ret_entry.  Returns false if error */
+        bool get_ping_block_entry(uint32_t address, ping_block_entry_s* ret_entry);
+
         /* Logs ping time.  Assumes ping reply is valid if called, but time may will be capped at PINGO_BLOCK_PING_TIME_NO_RESPONSE */
         bool log_ping_time(uint32_t address, reply_time_t);
 

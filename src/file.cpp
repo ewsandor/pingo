@@ -32,7 +32,7 @@ bool file_manager_c::generate_file_checksum(const file_s *file, file_checksum_t 
   if(file && checksum)
   {
     /* Reset checksum context */
-    EVP_DigestInit(mdctx, md);
+    EVP_DigestInit_ex(mdctx, md, nullptr);
     EVP_DigestUpdate(mdctx, &file->header, sizeof(file->header));
     EVP_DigestUpdate(mdctx, file->data, sizeof(file_data_entry_s)*file->header.address_count);
     EVP_DigestFinal_ex(mdctx, md_value, &md_len);
@@ -56,6 +56,7 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
   char   filename[FILE_PATH_MAX_LENGTH+FILE_NAME_MAX_LENGTH];
   file_s file;
   FILE * fp;
+  ping_block_entry_s ping_block_entry;
 
   if(ping_block && (ping_block->get_address_count() > 0))
   {
@@ -73,6 +74,18 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
     file.data = (file_data_entry_s*) calloc(sizeof(file_data_entry_s), file.header.address_count);
     for(i = 0; i < ping_block->get_address_count(); i++)
     {
+      assert(ping_block->get_ping_block_entry((ping_block->get_first_address()+i), &ping_block_entry));
+      if(ping_block_entry.reply_valid)
+      {
+        file.data[i].type = FILE_DATA_ENTRY_ECHO_REPLY;
+        file.data[i].payload.echo_reply.reply_time = 
+          ((ping_block_entry.ping_time < FILE_ECHO_REPLY_TIME_MAX)?ping_block_entry.ping_time:FILE_ECHO_REPLY_TIME_MAX);
+      }
+      else
+      {
+        file.data[i].type = FILE_DATA_ENTRY_ECHO_NO_REPLY;
+        file.data[i].payload.echo_reply.reply_time = FILE_ECHO_REPLY_TIME_MAX;
+      }
     }
     /* Fill checksum */
     generate_file_checksum(&file, file.checksum);
@@ -80,9 +93,9 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
     block_exit(EXIT_BLOCK_WRITE_FILE_OPEN);
     if((fp = fopen(filename, "wb")))
     {
-      assert(1 == fwrite(&file.header, sizeof(file.header), 1, fp));
+      assert(1 == fwrite(&file.header,  sizeof(file.header), 1, fp));
       assert(file.header.address_count == 
-                  fwrite(file.data, sizeof(file_data_entry_s), file.header.address_count, fp));
+                  fwrite(file.data,     sizeof(file_data_entry_s), file.header.address_count, fp));
       assert(1 == fwrite(file.checksum, sizeof(file.checksum), 1, fp));
       assert(0 == fclose(fp));
     }

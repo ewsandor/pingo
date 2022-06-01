@@ -53,10 +53,11 @@ namespace sandor_laboratories
       FILE_DATA_ENTRY_MAX,
     } file_data_entry_type_e;
 
+    #define FILE_ECHO_REPLY_TIME_MAX 0x00FFFFFF
     typedef struct __attribute__ ((packed))
     {
       /* Echo reply time in ms */
-      uint32_t reply_time;
+      uint32_t reply_time:24;
     } file_data_entry_payload_echo_reply_s;
     
 
