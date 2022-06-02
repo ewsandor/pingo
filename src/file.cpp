@@ -23,6 +23,208 @@ file_manager_c::~file_manager_c()
   EVP_MD_CTX_free(mdctx);
 }
 
+bool file_manager_c::file_header_valid(const file_s* file)
+{
+  bool ret_val = true;
+
+  if(file)
+  {
+    ret_val = ( (FILE_SIGNATURE == file->header.signature) &&
+                (FILE_VERSION_0 == file->header.version) );
+  }
+  else
+  {
+    fprintf(stderr, "Null file pointer 0x%p", file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
+bool file_manager_c::read_file(const char * file_path, file_s* output_file)
+{
+  bool ret_val = true;
+  FILE * fp;
+
+  if(file_path && output_file)
+  {
+    if((fp = fopen(file_path, "rb")))
+    {
+      if(read_file_header(fp, output_file))
+      {
+        if(read_file_data(fp, output_file))
+        {
+          if(read_file_checksum(fp, output_file))
+          {
+            if(!verify_checksum(output_file))
+            {
+              fprintf(stderr, "Checksum failed for file '%s'.", file_path);
+              ret_val = false;
+            }
+          }
+          else
+          {
+            fprintf(stderr, "Failed to read checksum for file '%s'.", file_path);
+            ret_val = false;
+          }
+        }
+        else
+        {
+          fprintf(stderr, "Failed to read data for file '%s'.", file_path);
+          ret_val = false;
+        }
+      }
+      else
+      {
+        fprintf(stderr, "Failed to read header for file '%s'.", file_path);
+        ret_val = false;
+      }
+      assert(0 == fclose(fp));
+    }
+    else
+    {
+      fprintf(stderr, "Failed to open file '%s' for reading.  errno %u: %s\n", file_path, errno, strerror(errno));
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file_path 0x%p or output_file 0x%p.\n", file_path, output_file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
+bool file_manager_c::read_file_header(FILE * fp, file_s* output_file)
+{
+  bool ret_val = true;
+  char ip_string_buffer[IP_STRING_SIZE];
+
+  if(fp && output_file)
+  {
+    if(1 == fread(&output_file->header, sizeof(output_file->header), 1, fp))
+    {
+      if(!file_header_valid(output_file))
+      {
+        ip_string(output_file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+        fprintf(stderr, "Invalid file header.  signature 0x%lx version %u first_address %s address_count %u\n", 
+          output_file->header.signature,
+          output_file->header.version,
+          ip_string_buffer,
+          output_file->header.address_count);
+        ret_val = false;
+      }
+    }
+    else
+    {
+      fprintf(stderr, "Failed to read file header.  feof %d ferror %d\n", feof(fp), ferror(fp));
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file_stream 0x%p or output_file 0x%p.\n", fp, output_file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
+bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
+{
+  bool ret_val = true;
+  char ip_string_buffer[IP_STRING_SIZE];
+
+  if(fp && output_file)
+  {
+    if(file_header_valid(output_file))
+    {
+      output_file->data = (file_data_entry_s*) malloc(sizeof(file_data_entry_s)*output_file->header.address_count);
+
+      if(output_file->data)
+      {
+        if(output_file->header.address_count !=
+           fread(output_file->data, sizeof(file_data_entry_s), output_file->header.address_count, fp))
+        {
+          free(output_file->data);
+          fprintf(stderr, "Failed to read file data.  feof %d ferror %d\n", feof(fp), ferror(fp));
+          ret_val = false;
+        }
+      }
+      else
+      {
+        fprintf(stderr, "Failed to allocate memory for file data\n");
+        ret_val = false;
+      }
+    }
+    else
+    {
+      ip_string(output_file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+      fprintf(stderr, "Invalid file header.  signature 0x%lx version %u first_address %s address_count %u\n", 
+        output_file->header.signature,
+        output_file->header.version,
+        ip_string_buffer,
+        output_file->header.address_count);
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file_stream 0x%p or output_file 0x%p.\n", fp, output_file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
+bool file_manager_c::read_file_checksum(FILE * fp, file_s* output_file)
+{
+  bool ret_val = true;
+
+  if(fp && output_file)
+  {
+    if(1 != fread(&output_file->checksum, sizeof(output_file->checksum), 1, fp))
+    {
+      fprintf(stderr, "Failed to read file header.  feof %d ferror %d\n", feof(fp), ferror(fp));
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file_stream 0x%p or output_file 0x%p.\n", fp, output_file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
+bool file_manager_c::verify_checksum(const file_s* file)
+{
+  bool ret_val = true;
+  file_checksum_t checksum;
+
+  if(file)
+  {
+    if(generate_file_checksum(file, checksum))
+    {
+      ret_val = (0 == memcmp(checksum, file->checksum, sizeof(file_checksum_t)));
+    }
+    else
+    {
+      fprintf(stderr, "Failed to generate checksum\n");
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file pointer 0x%p.\n", file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool file_manager_c::generate_file_checksum(const file_s *file, file_checksum_t checksum)
 {
   bool ret_val = true;

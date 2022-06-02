@@ -94,6 +94,12 @@ namespace sandor_laboratories
         const EVP_MD * md; 
         EVP_MD_CTX *mdctx;
         
+        static bool file_header_valid(const file_s*);
+        static bool read_file_header  (FILE *, file_s*);
+        static bool read_file_data    (FILE *, file_s*);
+        static bool read_file_checksum(FILE *, file_s*);
+        bool read_file(const char *, file_s*);
+        bool verify_checksum(const file_s*);
         bool generate_file_checksum(const file_s*, file_checksum_t);
 
       public:
