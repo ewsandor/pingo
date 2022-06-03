@@ -102,6 +102,11 @@ bool file_manager_c::read_file_header(FILE * fp, file_s* output_file)
 
   if(fp && output_file)
   {
+    if (0 != ftell(fp))
+    {
+      fseek(fp, 0, SEEK_SET);
+    }
+
     if(1 == fread(&output_file->header, sizeof(output_file->header), 1, fp))
     {
       if(!file_header_valid(output_file))
@@ -139,6 +144,11 @@ bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
   {
     if(file_header_valid(output_file))
     {
+      if (sizeof(output_file->header) != ftell(fp))
+      {
+        fseek(fp, sizeof(output_file->header), SEEK_SET);
+      }
+      
       output_file->data = (file_data_entry_s*) malloc(sizeof(file_data_entry_s)*output_file->header.address_count);
 
       if(output_file->data)
@@ -161,7 +171,7 @@ bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
     else
     {
       ip_string(output_file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
-      fprintf(stderr, "Invalid file header.  signature 0x%lx version %u first_address %s address_count %u\n", 
+      fprintf(stderr, "Invalid file header to read data.  signature 0x%lx version %u first_address %s address_count %u\n", 
         output_file->header.signature,
         output_file->header.version,
         ip_string_buffer,
@@ -181,12 +191,31 @@ bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
 bool file_manager_c::read_file_checksum(FILE * fp, file_s* output_file)
 {
   bool ret_val = true;
+  char ip_string_buffer[IP_STRING_SIZE];
 
   if(fp && output_file)
   {
-    if(1 != fread(&output_file->checksum, sizeof(output_file->checksum), 1, fp))
+    if(file_header_valid(output_file))
     {
-      fprintf(stderr, "Failed to read file header.  feof %d ferror %d\n", feof(fp), ferror(fp));
+      if ((sizeof(output_file->header)+(sizeof(file_data_entry_s)*output_file->header.address_count)) != ((unsigned long) ftell(fp)))
+      {
+        fseek(fp, (sizeof(output_file->header)+(sizeof(file_data_entry_s)*output_file->header.address_count)), SEEK_SET);
+      }
+
+      if(1 != fread(&output_file->checksum, sizeof(output_file->checksum), 1, fp))
+      {
+        fprintf(stderr, "Failed to read file header.  feof %d ferror %d\n", feof(fp), ferror(fp));
+        ret_val = false;
+      }
+    }
+    else
+    {
+      ip_string(output_file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+      fprintf(stderr, "Invalid file header to read checksum.  signature 0x%lx version %u first_address %s address_count %u\n", 
+        output_file->header.signature,
+        output_file->header.version,
+        ip_string_buffer,
+        output_file->header.address_count);
       ret_val = false;
     }
   }
