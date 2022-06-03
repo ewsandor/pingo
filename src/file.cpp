@@ -254,6 +254,27 @@ bool file_manager_c::verify_checksum(const file_s* file, EVP_MD_CTX * mdctx)
   return ret_val;
 }
 
+bool file_manager_c::delete_file(file_s* file)
+{
+  bool ret_val = true;
+
+  if(file)
+  {
+    if(file->data)
+    {
+      free(file->data);
+      file->data = nullptr;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null file pointer for delete\n");
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool file_manager_c::verify_checksum(const file_s* file)
 {
   return verify_checksum(file, mdctx);

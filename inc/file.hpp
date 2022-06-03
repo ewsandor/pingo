@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <linux/limits.h>
 #include <openssl/evp.h>
+#include <vector>
 
 #include "ping_block.hpp"
 
@@ -87,17 +88,36 @@ namespace sandor_laboratories
       file_checksum_t    checksum;
     } file_s;
 
+    typedef enum
+    {
+      FILE_REGISTRY_ENTRY_UNREAD,
+      FILE_REGISTRY_ENTRY_READ_HEADER_ONLY,
+      FILE_REGISTRY_ENTRY_READ_NOT_VALIDATED,
+      FILE_REGISTRY_ENTRY_READ_VALID,
+      FILE_REGISTRY_ENTRY_READ_INVALID,
+    } registry_entry_state_e;
+
+    typedef struct 
+    {
+      registry_entry_state_e state;
+      char                   file_name[FILE_NAME_MAX_LENGTH];
+      file_s                 file;
+
+    } registry_entry_s;
+
     class file_manager_c
     {
       private:
-        char working_directory[FILE_PATH_MAX_LENGTH];
-        EVP_MD_CTX *mdctx;
+        char                           working_directory[FILE_PATH_MAX_LENGTH];
+        EVP_MD_CTX                    *mdctx;
+        std::vector<registry_entry_s>  registry;
         
         static bool file_header_valid                (const file_s*);
         static bool read_file_header                 (FILE *, file_s*);
         static bool read_file_data                   (FILE *, file_s*);
         static bool read_file_checksum               (FILE *, file_s*);
         static bool read_file                        (const char *, file_s*, bool skip_data = false);
+        static bool delete_file                      (file_s*);
 
         static bool verify_checksum                  (const file_s*, EVP_MD_CTX *);
         bool verify_checksum                         (const file_s*);
