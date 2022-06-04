@@ -2,7 +2,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
-
+#include <dirent.h>
 #include <openssl/evp.h>
 
 #include "file.hpp"
@@ -29,7 +29,8 @@ bool file_manager_c::file_header_valid(const file_s* file)
   if(file)
   {
     ret_val = ( (FILE_SIGNATURE == file->header.signature) &&
-                (FILE_VERSION_0 == file->header.version) );
+                (FILE_VERSION_0 == file->header.version) && 
+                (file->header.address_count > 0));
   }
   else
   {
@@ -405,6 +406,63 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
       ping_block, (ping_block?ping_block->get_address_count():-1));
     ret_val = false;
   }
+
+  return ret_val;
+}
+
+bool file_manager_c::build_registry()
+{
+  bool              ret_val = true;
+  registry_entry_s  registry_entry;
+  char              file_path[FILE_PATH_MAX_LENGTH];
+  char              ip_string_buffer[IP_STRING_SIZE];
+  struct dirent    *dp;
+  DIR              *dir;
+
+  dir = opendir(working_directory);
+
+  if(dir)
+  {
+    errno = 0;
+
+    while((dp = readdir(dir)))
+    {
+      memset(&registry_entry, 0, sizeof(registry_entry_s));
+      strncpy(registry_entry.file_name, dp->d_name, sizeof(registry_entry.file_name));
+      file_path_from_directory_filename(working_directory, registry_entry.file_name, file_path, sizeof(file_path));
+
+      if(read_file(file_path, &registry_entry.file, true) && file_header_valid(&registry_entry.file))
+      {
+        registry_entry.state = FILE_REGISTRY_ENTRY_READ_HEADER_ONLY;
+        ip_string(registry_entry.file.header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+        printf("Found pingo file '%s' for ping block starting at IP %s with %u addresses\n", 
+          registry_entry.file_name, ip_string_buffer, registry_entry.file.header.address_count);
+      }
+      else
+      {
+        registry_entry.state = FILE_REGISTRY_ENTRY_INVALID_HEADER;
+      }
+
+      registry.push_back(registry_entry);
+      errno = 0;
+    }
+
+    if(errno != 0)
+    {
+      fprintf(stderr, "Error reading directory.  errno %u: %s\n", errno, strerror(errno));
+      ret_val = false;
+    }
+
+    closedir(dir);
+  }
+  else
+  {
+    fprintf(stderr, "Failed to open directory '%s' to build registry.  errno %u: %s\n", 
+      working_directory, errno, strerror(errno));
+    ret_val = false;
+  }
+
+  registry.shrink_to_fit();
 
   return ret_val;
 }

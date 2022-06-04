@@ -94,7 +94,8 @@ namespace sandor_laboratories
       FILE_REGISTRY_ENTRY_READ_HEADER_ONLY,
       FILE_REGISTRY_ENTRY_READ_NOT_VALIDATED,
       FILE_REGISTRY_ENTRY_READ_VALID,
-      FILE_REGISTRY_ENTRY_READ_INVALID,
+      FILE_REGISTRY_ENTRY_READ_CHECKSUM_INVALID,
+      FILE_REGISTRY_ENTRY_INVALID_HEADER,
     } registry_entry_state_e;
 
     typedef struct 
@@ -130,6 +131,7 @@ namespace sandor_laboratories
         file_manager_c(const char * working_directory);
         ~file_manager_c();
 
+        bool build_registry();
         bool write_ping_block_to_file(ping_block_c*);
     };
   }

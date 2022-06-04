@@ -673,6 +673,7 @@ int main(int argc, char *argv[])
   }
 
   file_manager = new file_manager_c((PINGO_ARGUMENT_VALID == args.writer_args.directory_status)?args.writer_args.directory:".");
+  file_manager->build_registry();
 
   memset(&send_thread_args, 0, sizeof(send_thread_args));
   send_thread_args.ping_block_args = args.ping_block_args;
