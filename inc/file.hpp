@@ -115,6 +115,14 @@ namespace sandor_laboratories
       bool verbose;
     } file_manager_config_s;
 
+    typedef struct 
+    {
+      unsigned int valid_replies;
+      reply_time_t min_reply_time;
+      reply_time_t mean_reply_time;
+      reply_time_t max_reply_time;
+    } file_stats_s;
+
     class file_manager_c
     {
       private:
@@ -125,11 +133,13 @@ namespace sandor_laboratories
         std::vector<registry_entry_s>  registry;
         
         static bool file_header_valid     (const file_s*);
+        static bool file_data_valid       (const file_s*);
         static bool read_file_header      (FILE *, file_s*);
         static bool read_file_data        (FILE *, file_s*);
         static bool read_file_checksum    (FILE *, file_s*);
         static bool read_file             (const char *, file_s*, bool skip_data = false);
         static bool delete_file_data      (file_s*);
+        static file_stats_s get_stats_from_file(const file_s*);
 
         static bool verify_checksum       (const file_s*, EVP_MD_CTX *);
         bool verify_checksum              (const file_s*);

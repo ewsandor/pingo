@@ -47,6 +47,23 @@ bool file_manager_c::file_header_valid(const file_s* file)
   return ret_val;
 }
 
+bool file_manager_c::file_data_valid(const file_s* file)
+{
+  bool ret_val = true;
+
+  if(file)
+  {
+    ret_val = (file_header_valid(file) && file->data);
+  }
+  else
+  {
+    fprintf(stderr, "Null file pointer 0x%p\n", file);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool file_manager_c::read_file(const char * file_path, file_s* output_file, bool skip_data)
 {
   bool ret_val = true;
@@ -280,6 +297,51 @@ bool file_manager_c::delete_file_data(file_s* file)
   }
 
   return ret_val;
+}
+
+file_stats_s file_manager_c::get_stats_from_file(const file_s* file)
+{
+  unsigned int i;
+  file_stats_s stats;
+  uint64_t mean_accumulator = 0;
+
+  memset(&stats, 0, sizeof(file_stats_s));
+  stats.min_reply_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
+
+  if(file && file_data_valid(file))
+  {
+    for(i = 0; i < file->header.address_count; i++)
+    {
+      if(FILE_DATA_ENTRY_ECHO_REPLY == file->data[i].type)
+      {
+        stats.valid_replies++;
+        mean_accumulator += file->data[i].payload.echo_reply.reply_time;
+        if(file->data[i].payload.echo_reply.reply_time < stats.min_reply_time)
+        {
+          stats.min_reply_time = file->data[i].payload.echo_reply.reply_time;
+        }
+        if(file->data[i].payload.echo_reply.reply_time > stats.max_reply_time)
+        {
+          stats.max_reply_time = file->data[i].payload.echo_reply.reply_time;
+        }
+      }
+    }
+  }
+
+  if(stats.valid_replies)
+  {
+    mean_accumulator /= stats.valid_replies;
+    stats.mean_reply_time = ((mean_accumulator<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
+                              mean_accumulator:PINGO_BLOCK_PING_TIME_NO_RESPONSE);
+  }
+  else
+  {
+    stats.mean_reply_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE; 
+    stats.min_reply_time  = PINGO_BLOCK_PING_TIME_NO_RESPONSE; 
+    stats.max_reply_time  = PINGO_BLOCK_PING_TIME_NO_RESPONSE; 
+  }
+
+  return stats;
 }
 
 bool file_manager_c::verify_checksum(const file_s* file)
@@ -566,6 +628,7 @@ bool file_manager_c::validate_files_in_registry()
   bool ret_val = true;
   std::vector<registry_entry_s>::iterator it;
   uint32_t last_file_last_ip  = 0;
+  file_stats_s stats;
   char     file_path[FILE_PATH_MAX_LENGTH];
   char     ip_string_buffer_a[IP_STRING_SIZE];
   char     ip_string_buffer_b[IP_STRING_SIZE];
@@ -580,7 +643,6 @@ bool file_manager_c::validate_files_in_registry()
 
       read_file(file_path, &it->file);
       it->state = (verify_checksum(&it->file)?FILE_REGISTRY_ENTRY_READ_HEADER_ONLY_VALIDATED:FILE_REGISTRY_ENTRY_CORRUPTED);
-      delete_file_data(&it->file);
 
       if(it->file.header.first_address > (last_file_last_ip+1))
       {
@@ -599,9 +661,15 @@ bool file_manager_c::validate_files_in_registry()
       }
       else
       {
-        printf("Pingo file '%s' for IPs %s - %s validated.\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
+        stats = get_stats_from_file(&it->file);
+        printf("Pingo file '%s' for IPs %s - %s validated. % 3d%% replied (count: %u, min: %u, mean: %u, max: %u)\n", 
+          it->file_name, ip_string_buffer_a, ip_string_buffer_b,
+          (stats.valid_replies*100)/it->file.header.address_count, 
+          stats.valid_replies, stats.min_reply_time, stats.mean_reply_time, stats.max_reply_time);
         last_file_last_ip  = (it->file.header.first_address + it->file.header.address_count)-1;
       }
+
+      delete_file_data(&it->file);
     }
   }
 
