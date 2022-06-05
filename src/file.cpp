@@ -10,7 +10,13 @@
 
 using namespace sandor_laboratories::pingo;
 
+static const file_manager_config_s default_file_manager_config = 
+  {
+    .verbose = false,
+  };
+
 file_manager_c::file_manager_c(const char * wd)
+  : config(default_file_manager_config)
 {
   assert(wd);
   strncpy(working_directory, wd, sizeof(working_directory));
@@ -490,9 +496,12 @@ bool file_manager_c::build_registry()
       if(read_file(file_path, &file, true) && file_header_valid(&file))
       {
         add_file_to_registry(dp->d_name, &file, FILE_REGISTRY_ENTRY_READ_HEADER_ONLY);
-        ip_string(file.header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
-        printf("Found pingo file '%s' for ping block starting at IP %s with %u addresses\n", 
-          dp->d_name, ip_string_buffer, file.header.address_count);
+        if(config.verbose)
+        {
+          ip_string(file.header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+          printf("Found pingo file '%s' for ping block starting at IP %s with %u addresses\n", 
+            dp->d_name, ip_string_buffer, file.header.address_count);
+        }
       }
       else
       {

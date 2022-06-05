@@ -110,9 +110,16 @@ namespace sandor_laboratories
 
     } registry_entry_s;
 
+    typedef struct
+    {
+      bool verbose;
+    } file_manager_config_s;
+
     class file_manager_c
     {
       private:
+        const file_manager_config_s    config;
+
         char                           working_directory[FILE_PATH_MAX_LENGTH];
         EVP_MD_CTX                    *mdctx;
         std::vector<registry_entry_s>  registry;
