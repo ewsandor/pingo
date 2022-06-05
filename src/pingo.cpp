@@ -52,13 +52,13 @@ typedef struct
 
 typedef struct 
 {
-  bool                    unexpected_arg;
+  bool                         unexpected_arg;
 
-  pingo_argument_status_e help_request;
+  pingo_argument_status_e      help_request;
+  pingo_argument_status_e      validate_status;
 
   pingo_ping_block_arguments_s ping_block_args;
-
-  pingo_writer_arguments_s writer_args;
+  pingo_writer_arguments_s     writer_args;
 
 } pingo_arguments_s;
 
@@ -70,6 +70,7 @@ const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           "-i: Initial IP address to ping\n"
                           "-s: Size of ping blocks\n"
                           "-t: Ping block soaking Timeout\n"
+                          "-v: Validate pingo files at directory and exit\n"
                           "-h: Display this Help text\n";
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -560,7 +561,7 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:d:hi:s:t:")) != -1)
+    while((o = getopt(argc, argv, "c:d:hi:s:t:v")) != -1)
     {
       switch(o)
       {
@@ -633,7 +634,12 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
           }
           break;
         }
-         case '?':
+        case 'v':
+        {
+          args->validate_status = PINGO_ARGUMENT_VALID;
+          break;
+        }
+        case '?':
         {
           args->unexpected_arg = true;
           break;
@@ -680,26 +686,41 @@ int main(int argc, char *argv[])
   file_manager = new file_manager_c((PINGO_ARGUMENT_VALID == args.writer_args.directory_status)?args.writer_args.directory:".");
   file_manager->build_registry();
 
-  memset(&send_thread_args, 0, sizeof(send_thread_args));
-  send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
-  send_thread_args.ping_block_args = args.ping_block_args;
-  send_thread_args.ping_logger     = &ping_logger;
+  if(PINGO_ARGUMENT_VALID == args.validate_status)
+  {
+    printf("Validating Pingo files.\n");
+    if(file_manager->validate_files_in_registry())
+    {
+      printf("Pingo files validated and complete!\n");
+    }
+    else
+    {
+      printf("Pingo files incomplete or corrupted!\n");
+    }
+  }
+  else
+  {
+    memset(&send_thread_args, 0, sizeof(send_thread_args));
+    send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
+    send_thread_args.ping_block_args = args.ping_block_args;
+    send_thread_args.ping_logger     = &ping_logger;
 
-  memset(&writer_thread_args, 0, sizeof(writer_thread_args));
-  writer_thread_args.args         = args.writer_args;
-  writer_thread_args.ping_logger  = &ping_logger;
-  writer_thread_args.file_manager = file_manager;
+    memset(&writer_thread_args, 0, sizeof(writer_thread_args));
+    writer_thread_args.args         = args.writer_args;
+    writer_thread_args.ping_logger  = &ping_logger;
+    writer_thread_args.file_manager = file_manager;
 
-  signal(SIGINT,  signal_handler);
-  signal(SIGTERM, signal_handler);
-  signal(SIGQUIT, signal_handler);
+    signal(SIGINT,  signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGQUIT, signal_handler);
 
-  pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
-  pthread_create(&writer_thread,      NULL, writer_thread_f, &writer_thread_args);
-  pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
-  pthread_create(&send_thread,        NULL, send_thread_f,   &send_thread_args);
+    pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
+    pthread_create(&writer_thread,      NULL, writer_thread_f, &writer_thread_args);
+    pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
+    pthread_create(&send_thread,        NULL, send_thread_f,   &send_thread_args);
 
-  while('q' != getchar()) {}
+    while('q' != getchar()) {}
+  }
   
   safe_exit(0);
 }

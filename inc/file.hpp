@@ -88,14 +88,16 @@ namespace sandor_laboratories
       file_checksum_t    checksum;
     } file_s;
 
-    #define FILE_REGISTRY_READ_AND_VALID(state) ((state > FILE_REGISTRY_ENTRY_UNREAD) && (state < FILE_REGISTRY_ENTRY_READ_CHECKSUM_INVALID))
+    #define FILE_REGISTRY_READ_AND_VALID(state) ((state > FILE_REGISTRY_ENTRY_UNREAD) && (state < FILE_REGISTRY_ENTRY_CORRUPTED))
+    #define FILE_REGISTRY_VALID_HEADER(state)   ((state != FILE_REGISTRY_ENTRY_UNREAD) && (state != FILE_REGISTRY_ENTRY_INVALID_HEADER))
     typedef enum
     {
       FILE_REGISTRY_ENTRY_UNREAD,
       FILE_REGISTRY_ENTRY_READ_HEADER_ONLY,
+      FILE_REGISTRY_ENTRY_READ_HEADER_ONLY_VALIDATED,
       FILE_REGISTRY_ENTRY_READ_NOT_VALIDATED,
       FILE_REGISTRY_ENTRY_READ_VALID,
-      FILE_REGISTRY_ENTRY_READ_CHECKSUM_INVALID,
+      FILE_REGISTRY_ENTRY_CORRUPTED,
       FILE_REGISTRY_ENTRY_INVALID_HEADER,
       FILE_REGISTRY_ENTRY_MAX,
     } registry_entry_state_e;
@@ -137,6 +139,7 @@ namespace sandor_laboratories
         ~file_manager_c();
 
         bool build_registry();
+        bool validate_files_in_registry();
         uint32_t get_next_registry_hole_ip();
 
         bool write_ping_block_to_file(ping_block_c*);

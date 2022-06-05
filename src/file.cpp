@@ -551,3 +551,60 @@ uint32_t file_manager_c::get_next_registry_hole_ip()
 
   return ret_val;
 }
+
+bool file_manager_c::validate_files_in_registry()
+{
+  bool ret_val = true;
+  std::vector<registry_entry_s>::iterator it;
+  uint32_t last_file_last_ip  = 0;
+  char     file_path[FILE_PATH_MAX_LENGTH];
+  char     ip_string_buffer_a[IP_STRING_SIZE];
+  char     ip_string_buffer_b[IP_STRING_SIZE];
+
+  sort_registry();
+
+  for(it = registry.begin(); it != registry.end(); it++)
+  {
+    if(FILE_REGISTRY_VALID_HEADER(it->state))
+    {
+      file_path_from_directory_filename(working_directory, it->file_name, file_path, sizeof(file_path));
+
+      read_file(file_path, &it->file);
+      it->state = (verify_checksum(&it->file)?FILE_REGISTRY_ENTRY_READ_HEADER_ONLY_VALIDATED:FILE_REGISTRY_ENTRY_CORRUPTED);
+      delete_file_data(&it->file);
+
+      if(it->file.header.first_address > (last_file_last_ip+1))
+      {
+        ip_string((last_file_last_ip+1),         ip_string_buffer_a, sizeof(ip_string_buffer_a));
+        ip_string((it->file.header.first_address-1), ip_string_buffer_b, sizeof(ip_string_buffer_b));
+        printf("No data for IPs %s - %s\n", ip_string_buffer_a, ip_string_buffer_b);
+        ret_val = false;
+      }
+
+      ip_string(it->file.header.first_address, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+      ip_string(((it->file.header.first_address+it->file.header.address_count)-1), ip_string_buffer_b, sizeof(ip_string_buffer_b));
+      if(FILE_REGISTRY_ENTRY_CORRUPTED == it->state)
+      {
+        printf("CORRUPTED PINGO FILE '%s' FOR IPs %s - %s!\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
+        ret_val = false;
+      }
+      else
+      {
+        printf("Pingo file '%s' for IPs %s - %s validated.\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
+        last_file_last_ip  = (it->file.header.first_address + it->file.header.address_count)-1;
+      }
+    }
+  }
+
+  if(last_file_last_ip < 0xFFFFFFFF)
+  {
+    ip_string((last_file_last_ip+1),         ip_string_buffer_a, sizeof(ip_string_buffer_a));
+    ip_string(0xFFFFFFFF, ip_string_buffer_b, sizeof(ip_string_buffer_b));
+    printf("No data for IPs %s - %s\n", ip_string_buffer_a, ip_string_buffer_b);
+    ret_val = false;
+  }
+
+
+
+  return ret_val;
+}
