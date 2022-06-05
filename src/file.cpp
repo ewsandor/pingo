@@ -13,6 +13,7 @@ using namespace sandor_laboratories::pingo;
 static const file_manager_config_s default_file_manager_config = 
   {
     .verbose = false,
+    .stats_on_validation = true,
   };
 
 file_manager_c::file_manager_c(const char * wd)
@@ -656,16 +657,24 @@ bool file_manager_c::validate_files_in_registry()
       ip_string(((it->file.header.first_address+it->file.header.address_count)-1), ip_string_buffer_b, sizeof(ip_string_buffer_b));
       if(FILE_REGISTRY_ENTRY_CORRUPTED == it->state)
       {
-        printf("CORRUPTED PINGO FILE '%s' FOR IPs %s - %s!\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
+        printf("CORRUPTED FILE '%s' FOR IPs %s - %s!\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
         ret_val = false;
       }
       else
       {
-        stats = get_stats_from_file(&it->file);
-        printf("Pingo file '%s' for IPs %s - %s validated. % 3d%% replied (count: %u, min: %u, mean: %u, max: %u)\n", 
-          it->file_name, ip_string_buffer_a, ip_string_buffer_b,
-          (stats.valid_replies*100)/it->file.header.address_count, 
-          stats.valid_replies, stats.min_reply_time, stats.mean_reply_time, stats.max_reply_time);
+        if(config.stats_on_validation)
+        {
+          stats = get_stats_from_file(&it->file);
+          printf("File '%s' for IPs %s - %s validated. % 3d%% replied (count: %u, min: %u, mean: %u, max: %u)\n", 
+            it->file_name, ip_string_buffer_a, ip_string_buffer_b,
+            (stats.valid_replies*100)/it->file.header.address_count, 
+            stats.valid_replies, stats.min_reply_time, stats.mean_reply_time, stats.max_reply_time);
+        }
+        else
+        {
+          printf("File '%s' for IPs %s - %s validated.\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
+        }
+
         last_file_last_ip  = (it->file.header.first_address + it->file.header.address_count)-1;
       }
 

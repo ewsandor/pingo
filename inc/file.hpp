@@ -113,6 +113,7 @@ namespace sandor_laboratories
     typedef struct
     {
       bool verbose;
+      bool stats_on_validation;
     } file_manager_config_s;
 
     typedef struct 
