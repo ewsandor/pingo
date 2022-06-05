@@ -88,6 +88,7 @@ namespace sandor_laboratories
       file_checksum_t    checksum;
     } file_s;
 
+    #define FILE_REGISTRY_READ_AND_VALID(state) ((state > FILE_REGISTRY_ENTRY_UNREAD) && (state < FILE_REGISTRY_ENTRY_READ_CHECKSUM_INVALID))
     typedef enum
     {
       FILE_REGISTRY_ENTRY_UNREAD,
@@ -96,6 +97,7 @@ namespace sandor_laboratories
       FILE_REGISTRY_ENTRY_READ_VALID,
       FILE_REGISTRY_ENTRY_READ_CHECKSUM_INVALID,
       FILE_REGISTRY_ENTRY_INVALID_HEADER,
+      FILE_REGISTRY_ENTRY_MAX,
     } registry_entry_state_e;
 
     typedef struct 
@@ -113,19 +115,21 @@ namespace sandor_laboratories
         EVP_MD_CTX                    *mdctx;
         std::vector<registry_entry_s>  registry;
         
-        static bool file_header_valid                (const file_s*);
-        static bool read_file_header                 (FILE *, file_s*);
-        static bool read_file_data                   (FILE *, file_s*);
-        static bool read_file_checksum               (FILE *, file_s*);
-        static bool read_file                        (const char *, file_s*, bool skip_data = false);
-        static bool delete_file                      (file_s*);
+        static bool file_header_valid     (const file_s*);
+        static bool read_file_header      (FILE *, file_s*);
+        static bool read_file_data        (FILE *, file_s*);
+        static bool read_file_checksum    (FILE *, file_s*);
+        static bool read_file             (const char *, file_s*, bool skip_data = false);
+        static bool delete_file           (file_s*);
 
-        static bool verify_checksum                  (const file_s*, EVP_MD_CTX *);
-        bool verify_checksum                         (const file_s*);
-        static bool generate_file_checksum           (const file_s*, file_checksum_t, EVP_MD_CTX *);
-        bool generate_file_checksum                  (const file_s*, file_checksum_t);
+        static bool verify_checksum       (const file_s*, EVP_MD_CTX *);
+        bool verify_checksum              (const file_s*);
+        static bool generate_file_checksum(const file_s*, file_checksum_t, EVP_MD_CTX *);
+        bool generate_file_checksum       (const file_s*, file_checksum_t);
 
         static bool file_path_from_directory_filename(const char * directory, const char * filename, char * path, size_t path_buffer_size);
+
+        void sort_registry();
 
       public:
         file_manager_c(const char * working_directory);

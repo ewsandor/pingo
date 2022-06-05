@@ -410,6 +410,41 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
   return ret_val;
 }
 
+void file_manager_c::sort_registry()
+{
+  unsigned int i,j;
+  registry_entry_s swap_buffer;
+  unsigned int valid_entries = 0; 
+
+  /* Insertion sort */
+  for(i = 1; i < registry.size(); i++)
+  {
+    if(FILE_REGISTRY_READ_AND_VALID(registry[i].state))
+    {
+      valid_entries++;
+      if( (!FILE_REGISTRY_READ_AND_VALID(registry[i-1].state)) ||
+          (registry[i].file.header.first_address < registry[i-1].file.header.first_address) )
+      {
+        swap_buffer = registry[i];
+        for(j = i; j > 0; j--)
+        {
+          if( (FILE_REGISTRY_READ_AND_VALID(registry[j-1].state)) &&
+              (swap_buffer.file.header.first_address > registry[j-1].file.header.first_address) )
+          {
+            break;
+          }
+          else
+          {
+            registry[j] = registry[j-1];
+          }
+        }
+        registry[j] = swap_buffer;
+      }
+    }
+  }
+  registry.resize(valid_entries);
+}
+
 bool file_manager_c::build_registry()
 {
   bool              ret_val = true;
@@ -462,7 +497,7 @@ bool file_manager_c::build_registry()
     ret_val = false;
   }
 
-  registry.shrink_to_fit();
+  sort_registry();
 
   return ret_val;
 }
