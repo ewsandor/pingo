@@ -255,7 +255,7 @@ bool file_manager_c::verify_checksum(const file_s* file, EVP_MD_CTX * mdctx)
   return ret_val;
 }
 
-bool file_manager_c::delete_file(file_s* file)
+bool file_manager_c::delete_file_data(file_s* file)
 {
   bool ret_val = true;
 
@@ -392,7 +392,8 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
       }
       unblock_exit(EXIT_BLOCK_WRITE_FILE_OPEN);
 
-      free(file.data);
+      delete_file_data(&file);
+      add_file_to_registry(filename, &file, FILE_REGISTRY_ENTRY_READ_HEADER_ONLY);
     }
     else
     {
@@ -445,14 +446,36 @@ void file_manager_c::sort_registry()
   registry.resize(valid_entries);
 }
 
+bool file_manager_c::add_file_to_registry(const char * file_name, const file_s* file, registry_entry_state_e state)
+{
+  bool ret_val = true;
+  registry_entry_s  registry_entry;
+
+  if(file_name && file && (state < FILE_REGISTRY_ENTRY_MAX))
+  {
+    memset(&registry_entry, 0, sizeof(registry_entry_s));
+    strncpy(registry_entry.file_name, file_name, sizeof(registry_entry.file_name));
+    registry_entry.file = *file;
+    registry_entry.state = state;
+    registry.push_back(registry_entry);
+  }
+  else
+  {
+    fprintf(stderr, "Bad input to add file to registry.  file_name %s file %p state %u\n", (file_name?file_name:"(null)"), file, state);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
+
 bool file_manager_c::build_registry()
 {
   bool              ret_val = true;
-  registry_entry_s  registry_entry;
   char              file_path[FILE_PATH_MAX_LENGTH];
   char              ip_string_buffer[IP_STRING_SIZE];
   struct dirent    *dp;
   DIR              *dir;
+  file_s            file;
 
   dir = opendir(working_directory);
 
@@ -462,23 +485,20 @@ bool file_manager_c::build_registry()
 
     while((dp = readdir(dir)))
     {
-      memset(&registry_entry, 0, sizeof(registry_entry_s));
-      strncpy(registry_entry.file_name, dp->d_name, sizeof(registry_entry.file_name));
-      file_path_from_directory_filename(working_directory, registry_entry.file_name, file_path, sizeof(file_path));
+      file_path_from_directory_filename(working_directory, dp->d_name, file_path, sizeof(file_path));
 
-      if(read_file(file_path, &registry_entry.file, true) && file_header_valid(&registry_entry.file))
+      if(read_file(file_path, &file, true) && file_header_valid(&file))
       {
-        registry_entry.state = FILE_REGISTRY_ENTRY_READ_HEADER_ONLY;
-        ip_string(registry_entry.file.header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+        add_file_to_registry(dp->d_name, &file, FILE_REGISTRY_ENTRY_READ_HEADER_ONLY);
+        ip_string(file.header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
         printf("Found pingo file '%s' for ping block starting at IP %s with %u addresses\n", 
-          registry_entry.file_name, ip_string_buffer, registry_entry.file.header.address_count);
+          dp->d_name, ip_string_buffer, file.header.address_count);
       }
       else
       {
-        registry_entry.state = FILE_REGISTRY_ENTRY_INVALID_HEADER;
+        add_file_to_registry(dp->d_name, &file, FILE_REGISTRY_ENTRY_INVALID_HEADER);
       }
 
-      registry.push_back(registry_entry);
       errno = 0;
     }
 
@@ -498,6 +518,36 @@ bool file_manager_c::build_registry()
   }
 
   sort_registry();
+
+  return ret_val;
+}
+
+uint32_t file_manager_c::get_next_registry_hole_ip()
+{
+  uint32_t ret_val = 0;
+  std::vector<registry_entry_s>::iterator it;
+
+  sort_registry();
+
+  for(it = registry.begin(); it != registry.end(); it++)
+  {
+    if(FILE_REGISTRY_READ_AND_VALID(it->state))
+    {
+      if( (ret_val >= it->file.header.first_address) && 
+          (ret_val < (it->file.header.first_address + it->file.header.address_count)) )
+      {
+        ret_val = (it->file.header.first_address + it->file.header.address_count);
+      }
+      else
+      {
+        break;
+      }
+    }
+    else
+    {
+      fprintf(stderr, "File registry %s in unexpected state %u when getting next registry hole.", it->file_name, it->state);
+    }
+  }
 
   return ret_val;
 }

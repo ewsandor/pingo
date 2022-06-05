@@ -120,7 +120,7 @@ namespace sandor_laboratories
         static bool read_file_data        (FILE *, file_s*);
         static bool read_file_checksum    (FILE *, file_s*);
         static bool read_file             (const char *, file_s*, bool skip_data = false);
-        static bool delete_file           (file_s*);
+        static bool delete_file_data      (file_s*);
 
         static bool verify_checksum       (const file_s*, EVP_MD_CTX *);
         bool verify_checksum              (const file_s*);
@@ -129,13 +129,16 @@ namespace sandor_laboratories
 
         static bool file_path_from_directory_filename(const char * directory, const char * filename, char * path, size_t path_buffer_size);
 
-        void sort_registry();
+        bool     add_file_to_registry     (const char *, const file_s*, registry_entry_state_e);
+        void     sort_registry            ();
 
       public:
         file_manager_c(const char * working_directory);
         ~file_manager_c();
 
         bool build_registry();
+        uint32_t get_next_registry_hole_ip();
+
         bool write_ping_block_to_file(ping_block_c*);
     };
   }

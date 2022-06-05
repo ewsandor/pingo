@@ -310,6 +310,7 @@ typedef struct
 {
   pingo_ping_block_arguments_s  ping_block_args;
   ping_logger_c                *ping_logger;
+  uint32_t                      ping_block_first_address;
 } send_thread_args_s;
 
 void *send_thread_f(void* arg)
@@ -318,7 +319,7 @@ void *send_thread_f(void* arg)
   ping_block_c          *ping_block;
   send_thread_args_s    *send_thread_args = (send_thread_args_s*) arg;
   ping_logger_c         *ping_logger;
-  uint32_t               ping_block_first_address = 0;
+  uint32_t               ping_block_first_address;
   unsigned int           ping_block_address_count = 65536;
   const struct timespec  cool_down = {.tv_sec = 0, .tv_nsec = 0};
 
@@ -334,6 +335,10 @@ void *send_thread_f(void* arg)
   if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.initial_ip_status)
   {
     ping_block_first_address = send_thread_args->ping_block_args.initial_ip; 
+  }
+  else
+  {
+    ping_block_first_address = send_thread_args->ping_block_first_address;
   }
   if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.address_length_status)
   {
@@ -676,6 +681,7 @@ int main(int argc, char *argv[])
   file_manager->build_registry();
 
   memset(&send_thread_args, 0, sizeof(send_thread_args));
+  send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
   send_thread_args.ping_block_args = args.ping_block_args;
   send_thread_args.ping_logger     = &ping_logger;
 
