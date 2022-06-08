@@ -561,7 +561,7 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:d:hi:s:t:v")) != -1)
+    while((o = getopt(argc, argv, "c:d:hi:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
