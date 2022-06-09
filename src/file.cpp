@@ -627,8 +627,9 @@ uint32_t file_manager_c::get_next_registry_hole_ip()
 bool file_manager_c::validate_files_in_registry()
 {
   bool ret_val = true;
+  bool valid_file_found = false;
   std::vector<registry_entry_s>::iterator it;
-  uint32_t last_file_last_ip  = 0;
+  uint32_t last_file_last_ip  = -1;
   file_stats_s stats;
   char     file_path[FILE_PATH_MAX_LENGTH];
   char     ip_string_buffer_a[IP_STRING_SIZE];
@@ -675,14 +676,16 @@ bool file_manager_c::validate_files_in_registry()
           printf("File '%s' for IPs %s - %s validated.\n", it->file_name, ip_string_buffer_a, ip_string_buffer_b);
         }
 
-        last_file_last_ip  = (it->file.header.first_address + it->file.header.address_count)-1;
+        last_file_last_ip = (it->file.header.first_address + it->file.header.address_count)-1;
+        valid_file_found = true;
       }
 
       delete_file_data(&it->file);
     }
   }
 
-  if(last_file_last_ip < 0xFFFFFFFF)
+  if( (last_file_last_ip < 0xFFFFFFFF) ||
+      (!valid_file_found) )
   {
     ip_string((last_file_last_ip+1),         ip_string_buffer_a, sizeof(ip_string_buffer_a));
     ip_string(0xFFFFFFFF, ip_string_buffer_b, sizeof(ip_string_buffer_b));
