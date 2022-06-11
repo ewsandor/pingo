@@ -33,6 +33,9 @@ namespace sandor_laboratories
       private:
         const hilbert_order_t order; 
 
+        static bool orientate_hilbert_coordinate( const hilbert_coordinate_t max_coordinate, const hilbert_orientation_e orientation, 
+                                                  const hilbert_coordinate_s coordinate_in,        hilbert_coordinate_s *coordinate_out);
+
       public:
         hilbert_curve_c(hilbert_order_t order);
 

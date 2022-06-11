@@ -671,10 +671,18 @@ int main(int argc, char *argv[])
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
 
-
-  hilbert_curve_c hilbert_curve(16);
+//  #define HILBERT_TEST
+  #ifdef HILBERT_TEST
+  hilbert_curve_c hilbert_curve(3);
   printf("Hilbert max value %lu max coordinate %u\n", hilbert_curve.max_index(), hilbert_curve.max_coordinate());
+  for(hilbert_index_t i = 0; i < 256; i++)
+  {
+    hilbert_coordinate_s coordinate;
+    assert(hilbert_curve.get_coordinate(i, &coordinate));
+    printf("Hilbert %lu -> (%u, %u)\n", i, coordinate.x, coordinate.y);
+  }
   safe_exit(0);
+  #endif
   
 
   assert(parse_pingo_args(argc, argv, &args));
