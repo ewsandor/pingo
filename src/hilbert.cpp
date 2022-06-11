@@ -4260,7 +4260,7 @@ inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordin
           coordinate_out->y = (max_coordinate-1)-coordinate_in.x;
           break;
         }
-         case HILBERT_ORIENTATION_C:
+        case HILBERT_ORIENTATION_C:
         {
           // ^   .
           // |   |
@@ -4269,7 +4269,7 @@ inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordin
           coordinate_out->y = (max_coordinate-1)-coordinate_in.y;
           break;
         }
-         case HILBERT_ORIENTATION_D:
+        case HILBERT_ORIENTATION_D:
         {
           // <---.
           //     |
@@ -4278,7 +4278,7 @@ inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordin
           coordinate_out->y = coordinate_in.x;
           break;
         }
-         default:
+        default:
         {
           fprintf(stderr, "Invalid orientation %u\n", orientation);
           ret_val = false;
