@@ -19,10 +19,11 @@ include_directories(${PROJECT_BINARY_BIN})
 include_directories(inc ${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(File       OBJECT src/file.cpp)
+add_library(Hilbert    OBJECT src/hilbert.cpp)
 add_library(IPv4       OBJECT src/ipv4.cpp)
 add_library(ICMP       OBJECT src/icmp.cpp)
 add_library(PingBlock  OBJECT src/ping_block.cpp)
 add_library(PingLogger OBJECT src/ping_logger.cpp)
 
 add_executable(pingo src/pingo.cpp)
-target_link_libraries(pingo PRIVATE OpenSSL::SSL Threads::Threads File IPv4 ICMP PingBlock PingLogger)
+target_link_libraries(pingo PRIVATE OpenSSL::SSL Threads::Threads File Hilbert IPv4 ICMP PingBlock PingLogger)

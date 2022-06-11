@@ -18,6 +18,8 @@
 #include "pingo.hpp"
 #include "version.hpp"
 
+#include "hilbert.hpp"
+
 using namespace sandor_laboratories::pingo;
 
 typedef enum
@@ -669,6 +671,12 @@ int main(int argc, char *argv[])
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
 
+
+  hilbert_curve_c hilbert_curve(16);
+  printf("Hilbert max value %lu max coordinate %u\n", hilbert_curve.max_index(), hilbert_curve.max_coordinate());
+  safe_exit(0);
+  
+
   assert(parse_pingo_args(argc, argv, &args));
 
   if((args.unexpected_arg) || (PINGO_ARGUMENT_UNSPECIFIED != args.help_request))
@@ -721,6 +729,6 @@ int main(int argc, char *argv[])
 
     while('q' != getchar()) {}
   }
-  
+
   safe_exit(0);
 }
