@@ -673,13 +673,13 @@ int main(int argc, char *argv[])
 
 //  #define HILBERT_TEST
   #ifdef HILBERT_TEST
-  hilbert_curve_c hilbert_curve(3);
+  hilbert_curve_c hilbert_curve(6);
   printf("Hilbert max value %lu max coordinate %u\n", hilbert_curve.max_index(), hilbert_curve.max_coordinate());
-  for(hilbert_index_t i = 0; i < 256; i++)
+  for(hilbert_index_t i = 0; i < 256*256; i++)
   {
     hilbert_coordinate_s coordinate;
     assert(hilbert_curve.get_coordinate(i, &coordinate));
-    printf("Hilbert %lu -> (%u, %u)\n", i, coordinate.x, coordinate.y);
+    printf("%u, %u\n", coordinate.x, coordinate.y);
   }
   safe_exit(0);
   #endif
