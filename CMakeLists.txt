@@ -9,6 +9,7 @@ project(Pingo
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(PNG REQUIRED)
 
 
 add_compile_options(-Wall -Wextra -Werror)
@@ -20,10 +21,11 @@ include_directories(inc ${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(File       OBJECT src/file.cpp)
 add_library(Hilbert    OBJECT src/hilbert.cpp)
-add_library(IPv4       OBJECT src/ipv4.cpp)
 add_library(ICMP       OBJECT src/icmp.cpp)
+add_library(Image      OBJECT src/image.cpp)
+add_library(IPv4       OBJECT src/ipv4.cpp)
 add_library(PingBlock  OBJECT src/ping_block.cpp)
 add_library(PingLogger OBJECT src/ping_logger.cpp)
 
 add_executable(pingo src/pingo.cpp)
-target_link_libraries(pingo PRIVATE OpenSSL::SSL Threads::Threads File Hilbert IPv4 ICMP PingBlock PingLogger)
+target_link_libraries(pingo PRIVATE OpenSSL::SSL png Threads::Threads File Hilbert ICMP Image IPv4 PingBlock PingLogger)

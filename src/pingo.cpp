@@ -19,6 +19,7 @@
 #include "version.hpp"
 
 #include "hilbert.hpp"
+#include "image.hpp"
 
 using namespace sandor_laboratories::pingo;
 
