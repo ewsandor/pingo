@@ -4162,41 +4162,77 @@ hilbert_curve_c::hilbert_curve_c(hilbert_order_t order_) : order(order_)
   }
 }
 
-/*
-#define MAX_INDEX_LUT_MAX 9
-static const hilbert_index_t max_index_lut[MAX_INDEX_LUT_MAX] =
+static const hilbert_index_t max_index_lut[] =
 {
-      0,
-      4,
-     16,
-     64,
-    256,
-   1024,
-   4096,
-  16384,
-  65536,
+           0,
+           4,
+          16,
+          64,
+         256,
+        1024,
+        4096,
+       16384,
+       65536,
+      262144,
+     1048576,
+     4194304,
+    16777216,
+    67108864,
+   268435456,
+  1073741824,
+  4294967296,
 };
-*/
+#define MAX_INDEX_LUT_MAX (sizeof(max_index_lut)/sizeof(hilbert_index_t))
 
 hilbert_index_t hilbert_curve_c::max_index(hilbert_order_t order)
 {
-  hilbert_index_t ret_val = ((order > 0)?4:0);
+  hilbert_index_t ret_val;
 
-  for(unsigned int i = 1; i < order; i++)
+  if(order < MAX_INDEX_LUT_MAX)
   {
-    ret_val *= 4;
+    ret_val = max_index_lut[order];
+  }
+  else
+  {
+    ret_val = (max_index_lut[(MAX_INDEX_LUT_MAX-1)] << (2*(1+(order - MAX_INDEX_LUT_MAX))));
   }
 
   return ret_val;
 }
 
+static const hilbert_coordinate_t max_coordinate_lut[] = 
+{
+      0,
+      2,
+      4,
+      8,
+     16,
+     32,
+     64,
+    128,
+    256,
+    512,
+   1024,
+   2048,
+   4096,
+   8192,
+  16384,
+  32768,
+  65536,
+};
+#define MAX_COORDINATE_LUT_MAX (sizeof(max_coordinate_lut)/sizeof(hilbert_coordinate_t))
+
 hilbert_coordinate_t hilbert_curve_c::max_coordinate(hilbert_order_t order)
 {
-  hilbert_coordinate_t ret_val = ((order > 0)?2:0);
+  hilbert_coordinate_t ret_val;
 
-  for(unsigned int i = 1; i < order; i++)
+  if(order < MAX_COORDINATE_LUT_MAX)
   {
-    ret_val *= 2;
+    ret_val = max_coordinate_lut[order];
+  }
+  else
+  {
+    ret_val = (max_coordinate_lut[(MAX_COORDINATE_LUT_MAX-1)] << (1+(order - MAX_COORDINATE_LUT_MAX)));
   }
 
   return ret_val;
