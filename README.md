@@ -3,3 +3,7 @@ A project to ping every single IPv4 address to experiment with basic networking 
 
 ## Dependencies
 This project attempts to be mostly Posix compliant but with a few Linux specific assumptions for quick implementation.
+### Libraries
+- pthreads
+- OpenSSL (libcrypto)
+- PNG (libpng)
