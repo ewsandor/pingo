@@ -237,7 +237,7 @@ bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t inde
         assert(index < 256);
         *coordinate = hilbert_coordinate_order_4[index];
       }
-       else if (order > 2)
+      else if (order > 4)
       {
         const hilbert_index_t next_order_max_index = max_index(order-1);
         assert(get_coordinate((order-1), (index % next_order_max_index), coordinate));
