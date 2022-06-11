@@ -110,12 +110,33 @@ bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordinate_t m
 }
 
 
-static const hilbert_coordinate_s first_order_hilbert_coordinate[4] = 
+static const hilbert_coordinate_s hilbert_coordinate_order_1[4] = 
+  { {.x = 0, .y = 0}, {.x = 0, .y = 1}, {.x = 1, .y = 1}, {.x = 1, .y = 0} };
+static const hilbert_coordinate_s hilbert_coordinate_order_2[16] = 
   {
-    {.x = 0, .y = 0},
-    {.x = 0, .y = 1},
-    {.x = 1, .y = 1},
-    {.x = 1, .y = 0}
+    {.x = 0, .y = 0}, {.x = 1, .y = 0}, {.x = 1, .y = 1}, {.x = 0, .y = 1},
+    {.x = 0, .y = 2}, {.x = 0, .y = 3}, {.x = 1, .y = 3}, {.x = 1, .y = 2},
+    {.x = 2, .y = 2}, {.x = 2, .y = 3}, {.x = 3, .y = 3}, {.x = 3, .y = 2},
+    {.x = 3, .y = 1}, {.x = 2, .y = 1}, {.x = 2, .y = 0}, {.x = 3, .y = 0}
+  };
+static const hilbert_coordinate_s hilbert_coordinate_order_3[64] = 
+  {
+    {.x = 0, .y = 0}, {.x = 0, .y = 1}, {.x = 1, .y = 1}, {.x = 1, .y = 0},
+    {.x = 2, .y = 0}, {.x = 3, .y = 0}, {.x = 3, .y = 1}, {.x = 2, .y = 1},
+    {.x = 2, .y = 2}, {.x = 3, .y = 2}, {.x = 3, .y = 3}, {.x = 2, .y = 3},
+    {.x = 1, .y = 3}, {.x = 1, .y = 2}, {.x = 0, .y = 2}, {.x = 0, .y = 3},
+    {.x = 0, .y = 4}, {.x = 1, .y = 4}, {.x = 1, .y = 5}, {.x = 0, .y = 5},
+    {.x = 0, .y = 6}, {.x = 0, .y = 7}, {.x = 1, .y = 7}, {.x = 1, .y = 6},
+    {.x = 2, .y = 6}, {.x = 2, .y = 7}, {.x = 3, .y = 7}, {.x = 3, .y = 6},
+    {.x = 3, .y = 5}, {.x = 2, .y = 5}, {.x = 2, .y = 4}, {.x = 3, .y = 4},
+    {.x = 4, .y = 4}, {.x = 5, .y = 4}, {.x = 5, .y = 5}, {.x = 4, .y = 5},
+    {.x = 4, .y = 6}, {.x = 4, .y = 7}, {.x = 5, .y = 7}, {.x = 5, .y = 6},
+    {.x = 6, .y = 6}, {.x = 6, .y = 7}, {.x = 7, .y = 7}, {.x = 7, .y = 6},
+    {.x = 7, .y = 5}, {.x = 6, .y = 5}, {.x = 6, .y = 4}, {.x = 7, .y = 4},
+    {.x = 7, .y = 3}, {.x = 7, .y = 2}, {.x = 6, .y = 2}, {.x = 6, .y = 3},
+    {.x = 5, .y = 3}, {.x = 4, .y = 3}, {.x = 4, .y = 2}, {.x = 5, .y = 2},
+    {.x = 5, .y = 1}, {.x = 4, .y = 1}, {.x = 4, .y = 0}, {.x = 5, .y = 0},
+    {.x = 6, .y = 0}, {.x = 6, .y = 1}, {.x = 7, .y = 1}, {.x = 7, .y = 0},
   };
 
 bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t index, hilbert_coordinate_s *coordinate)
@@ -130,9 +151,20 @@ bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t inde
     {
       if(1 == order)
       {
-        *coordinate = first_order_hilbert_coordinate[(index % 4)];
+        assert(index < 4);
+        *coordinate = hilbert_coordinate_order_1[index];
       }
-      else if (order > 1)
+      else if(2 == order)
+      {
+        assert(index < 16);
+        *coordinate = hilbert_coordinate_order_2[index];
+      }
+      else if(3 == order)
+      {
+        assert(index < 64);
+        *coordinate = hilbert_coordinate_order_3[index];
+      }
+      else if (order > 2)
       {
         const hilbert_index_t next_order_max_index = max_index(order-1);
         assert(get_coordinate((order-1), (index % next_order_max_index), coordinate));
