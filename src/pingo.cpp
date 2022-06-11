@@ -672,6 +672,12 @@ int main(int argc, char *argv[])
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
 
+  //#define PNG_TEST
+  #ifdef PNG_TEST
+  generate_png_image();
+  safe_exit(0);
+  #endif
+
 //  #define HILBERT_TEST
   #ifdef HILBERT_TEST
   hilbert_curve_c hilbert_curve(8);
