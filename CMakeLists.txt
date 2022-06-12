@@ -20,7 +20,7 @@ include_directories(${PROJECT_BINARY_BIN})
 include_directories(inc ${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(File       OBJECT src/file.cpp)
-add_library(Hilbert    OBJECT src/hilbert.cpp)
+add_library(Hilbert    OBJECT src/hilbert.cpp src/hilbert_lut.cpp)
 add_library(ICMP       OBJECT src/icmp.cpp)
 add_library(Image      OBJECT src/image.cpp)
 add_library(IPv4       OBJECT src/ipv4.cpp)

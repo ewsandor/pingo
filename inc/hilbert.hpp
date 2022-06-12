@@ -50,5 +50,4 @@ namespace sandor_laboratories
   }
 }
 
-
 #endif /* __HILBERT_HPP__ */
