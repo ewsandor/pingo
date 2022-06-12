@@ -23,13 +23,6 @@
 
 using namespace sandor_laboratories::pingo;
 
-typedef enum
-{
-  PINGO_ARGUMENT_UNSPECIFIED,
-  PINGO_ARGUMENT_VALID,
-  PINGO_ARGUMENT_INVALID,
-} pingo_argument_status_e;
-
 typedef struct
 {
   pingo_argument_status_e initial_ip_status;
@@ -52,7 +45,6 @@ typedef struct
   unsigned int            soak_timeout;
 } pingo_writer_arguments_s;
 
-
 typedef struct 
 {
   bool                         unexpected_arg;
@@ -60,6 +52,7 @@ typedef struct
   pingo_argument_status_e      help_request;
   pingo_argument_status_e      validate_status;
 
+  pingo_image_arguments_s      image_args;
   pingo_ping_block_arguments_s ping_block_args;
   pingo_writer_arguments_s     writer_args;
 
@@ -74,6 +67,7 @@ const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           "-s: Size of ping blocks\n"
                           "-t: Ping block soaking Timeout\n"
                           "-v: Validate pingo files at directory and exit\n"
+                          "-H: Create PNG of Hilbert Curve with given order starting at 0.0.0.0 or IP provided with -i\n"
                           "-h: Display this Help text\n";
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -564,7 +558,7 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:d:hi:s:t:v")) != ((char) -1))
+    while((o = getopt(argc, argv, "c:d:H:hi:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
@@ -586,6 +580,23 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
         {
           args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
           strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
+          break;
+        }
+        case 'H':
+        {
+          if( (sscanf(optarg, "%u%c", &args->image_args.hilbert_image_order, &c) == 1) &&
+              (args->image_args.hilbert_image_order >   0) &&
+              (args->image_args.hilbert_image_order <= 16) )
+          {
+            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-H %s: Hilbert Curve order format incorrect.  Expected order as unsigned decimal integer <= 16.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+
           break;
         }
         case 'h':
@@ -672,12 +683,6 @@ int main(int argc, char *argv[])
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
 
-  //#define PNG_TEST
-  #ifdef PNG_TEST
-  generate_png_image();
-  safe_exit(0);
-  #endif
-
 //  #define HILBERT_TEST
   #ifdef HILBERT_TEST
   hilbert_curve_c hilbert_curve(8);
@@ -723,6 +728,22 @@ int main(int argc, char *argv[])
     {
       printf("Pingo files incomplete or corrupted!\n");
     }
+  }
+  else if(PINGO_ARGUMENT_VALID == args.image_args.hilbert_image_order_status)
+  {
+    png_config_s png_config;
+    init_png_config(&png_config);
+    png_config.image_args   = args.image_args;
+    png_config.file_manager = file_manager;
+    if(PINGO_ARGUMENT_VALID == args.ping_block_args.initial_ip_status)
+    {
+      png_config.initial_ip = args.ping_block_args.initial_ip;
+    }
+    char ip_string_buffer[IP_STRING_SIZE];
+    ip_string(png_config.initial_ip, ip_string_buffer, sizeof(ip_string_buffer), '_', true);
+    sprintf(png_config.image_file_path, "%s_hilbert_%02u_color_depth_%u.png", 
+            ip_string_buffer, png_config.image_args.hilbert_image_order, png_config.color_depth);
+    generate_png_image(&png_config);
   }
   else
   {

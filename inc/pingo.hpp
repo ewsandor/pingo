@@ -51,6 +51,20 @@ namespace sandor_laboratories
     void block_exit(exit_block_reason_e);
     void unblock_exit(exit_block_reason_e);
 
+    /* Argument Types */
+    typedef enum
+    {
+      PINGO_ARGUMENT_UNSPECIFIED,
+      PINGO_ARGUMENT_VALID,
+      PINGO_ARGUMENT_INVALID,
+    } pingo_argument_status_e;
+
+    typedef struct
+    {
+      pingo_argument_status_e hilbert_image_order_status;
+      unsigned int            hilbert_image_order;
+
+    } pingo_image_arguments_s;
   }
 }
  
