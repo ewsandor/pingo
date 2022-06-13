@@ -726,9 +726,9 @@ bool file_manager_c::load_file_data(registry_entry_s* registry_entry)
   return ret_val;
 }
 
-void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address, uint32_t address_count)
+void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address, uint_fast64_t address_count)
 {
-  const uint32_t last_address = first_address+address_count;
+  const uint_fast64_t last_address = first_address+address_count;
 
   if(callback && (last_address > first_address))
   {
@@ -739,7 +739,7 @@ void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void
     {
       if(FILE_REGISTRY_VALID_HEADER(it->state))
       {
-        uint32_t file_last_address = (it->file.header.first_address + it->file.header.address_count);
+        uint_fast64_t file_last_address = (it->file.header.first_address + it->file.header.address_count);
         if( (file_last_address > it->file.header.first_address) &&
             (first_address < file_last_address) &&
             (it->file.header.first_address < last_address) )

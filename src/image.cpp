@@ -30,7 +30,7 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
   UNUSED(params);
 
   ip_string(file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
-  printf("Filling PNG for file starting at IP %s with %u IPs.\n", ip_string_buffer, file->header.address_count);
+  printf("Filling image data for file starting at IP %s with %u IPs.\n", ip_string_buffer, file->header.address_count);
 }
 
 FILE * fp = nullptr;

@@ -162,7 +162,7 @@ namespace sandor_laboratories
         bool build_registry();
         bool validate_files_in_registry();
         uint32_t get_next_registry_hole_ip();
-        void iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address = 0, uint32_t address_count = 0xFFFFFFFF);
+        void iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address = 0, uint_fast64_t address_count = (1L<<32));
 
         bool write_ping_block_to_file(ping_block_c*);
     };
