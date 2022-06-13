@@ -4,12 +4,34 @@
 #include <cstring>
 #include <png.h>
 
+#include "file.hpp"
 #include "hilbert.hpp"
 #include "image.hpp"
 #include "pingo.hpp"
 #include "version.hpp"
 
 using namespace sandor_laboratories::pingo;
+
+typedef struct
+{
+  const hilbert_curve_c *hilbert_curve;
+  const png_config_s    *png_config;
+  png_bytepp             row_pointers;
+  
+} hilbert_image_from_file_params_s;
+
+void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr)
+{
+  assert(file);
+  assert(user_data_ptr);
+  char ip_string_buffer[IP_STRING_SIZE];
+
+  const hilbert_image_from_file_params_s * params = (const hilbert_image_from_file_params_s *) user_data_ptr;
+  UNUSED(params);
+
+  ip_string(file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
+  printf("Filling PNG for file starting at IP %s with %u IPs.\n", ip_string_buffer, file->header.address_count);
+}
 
 FILE * fp = nullptr;
 png_structp png_ptr = nullptr;
@@ -71,6 +93,16 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
       {
         row_pointers[i] = (png_byte*) calloc(sizeof(png_byte), max_coordinate/pixels_per_byte);
       }
+
+      const hilbert_image_from_file_params_s hilbert_image_from_file_params = 
+        {
+          .hilbert_curve = &hilbert_curve,
+          .png_config    = png_config,
+          .row_pointers  = row_pointers,
+        };
+      png_config->file_manager->iterate_file_registry(fill_hilbert_image_from_file, 
+                                                     &hilbert_image_from_file_params, 
+                                                      png_config->initial_ip, hilbert_curve.max_index()) ;
 
       printf("Opening file %s for writing.\n", png_config->image_file_path);
       assert(nullptr == fp);
@@ -154,6 +186,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
             png_write_info(png_ptr, png_info_ptr);
 
             printf("Writing PNG image.\n");
+            //png_set_packswap(png_ptr);
             png_write_image(png_ptr, row_pointers);
 
             printf("Writing PNG end.\n");

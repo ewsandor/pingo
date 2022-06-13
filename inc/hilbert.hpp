@@ -40,7 +40,7 @@ namespace sandor_laboratories
         hilbert_curve_c(hilbert_order_t order);
 
         static bool get_coordinate(hilbert_order_t order, hilbert_index_t index, hilbert_coordinate_s *coordinate);
-        bool        get_coordinate(hilbert_index_t index, hilbert_coordinate_s *coordinate) {return get_coordinate(order, index, coordinate);};
+        bool        get_coordinate(hilbert_index_t index, hilbert_coordinate_s *coordinate) const {return get_coordinate(order, index, coordinate);};
 
         static hilbert_index_t      max_index(hilbert_order_t order);
         hilbert_index_t             max_index() const {return max_index(order);};
