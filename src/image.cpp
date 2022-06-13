@@ -27,10 +27,28 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
   char ip_string_buffer[IP_STRING_SIZE];
 
   const hilbert_image_from_file_params_s * params = (const hilbert_image_from_file_params_s *) user_data_ptr;
-  UNUSED(params);
 
   ip_string(file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
   printf("Filling image data for file starting at IP %s with %u IPs.\n", ip_string_buffer, file->header.address_count);
+
+  const hilbert_index_t      max_index       = params->hilbert_curve->max_index();
+  const hilbert_coordinate_t max_coordinate  = params->hilbert_curve->max_coordinate();
+  const uint32_t             last_ip         = params->png_config->initial_ip + max_index;
+  const uint32_t             file_last_ip    = file->header.first_address + file->header.address_count;
+  const unsigned int         pixels_per_byte = (8/params->png_config->color_depth);
+
+  for(uint_fast64_t i = MAX(params->png_config->initial_ip, file->header.first_address); i < MIN(last_ip, file_last_ip); i++)
+  {
+    const file_data_entry_s * file_data_entry = &file->data[(i-file->header.first_address)]; 
+    const hilbert_index_t     hilbert_index = (i-params->png_config->initial_ip);
+    if(FILE_DATA_ENTRY_ECHO_REPLY == file_data_entry->type)
+    {
+      const png_bytep  row_pointer    =  params->row_pointers[hilbert_index/max_coordinate];
+      png_byte        *column_pointer = &row_pointer[(hilbert_index%(max_coordinate))/8];
+
+      *column_pointer |= (1 << (hilbert_index%pixels_per_byte));
+    }
+  }
 }
 
 FILE * fp = nullptr;
@@ -87,7 +105,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
       hilbert_curve_c hilbert_curve(png_config->image_args.hilbert_image_order);
       assert(0 == max_coordinate);
       max_coordinate = hilbert_curve.max_coordinate();
-      unsigned int pixels_per_byte = (8/png_config->color_depth);
+      const unsigned int pixels_per_byte = (8/png_config->color_depth);
       printf("Allocating image memory for %u x %u PNG image.  %u pixels_per_byte\n", max_coordinate, max_coordinate, pixels_per_byte);
       for(unsigned int i = 0; i < max_coordinate; i++)
       {
@@ -186,7 +204,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
             png_write_info(png_ptr, png_info_ptr);
 
             printf("Writing PNG image.\n");
-            //png_set_packswap(png_ptr);
+            png_set_packswap(png_ptr);
             png_write_image(png_ptr, row_pointers);
 
             printf("Writing PNG end.\n");

@@ -12,6 +12,9 @@ namespace sandor_laboratories
 
     #define UNUSED(x) (void)(x)
 
+    #define MAX(a,b) ((a>b)?a:b)
+    #define MIN(a,b) ((a<b)?a:b)
+
     typedef struct 
     {
       uint32_t        dest_address;
