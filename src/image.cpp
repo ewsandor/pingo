@@ -33,20 +33,24 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
 
   const hilbert_index_t      max_index       = params->hilbert_curve->max_index();
   const hilbert_coordinate_t max_coordinate  = params->hilbert_curve->max_coordinate();
-  const uint32_t             last_ip         = params->png_config->initial_ip + max_index;
-  const uint32_t             file_last_ip    = file->header.first_address + file->header.address_count;
+  const uint_fast64_t        last_ip         = ((uint_fast64_t)params->png_config->initial_ip) + max_index;
+  const uint_fast64_t        file_last_ip    = file->header.first_address + file->header.address_count;
   const unsigned int         pixels_per_byte = (8/params->png_config->color_depth);
 
   for(uint_fast64_t i = MAX(params->png_config->initial_ip, file->header.first_address); i < MIN(last_ip, file_last_ip); i++)
   {
     const file_data_entry_s * file_data_entry = &file->data[(i-file->header.first_address)]; 
-    const hilbert_index_t     hilbert_index = (i-params->png_config->initial_ip);
     if(FILE_DATA_ENTRY_ECHO_REPLY == file_data_entry->type)
     {
-      const png_bytep  row_pointer    =  params->row_pointers[hilbert_index/max_coordinate];
-      png_byte        *column_pointer = &row_pointer[(hilbert_index%(max_coordinate))/8];
+      const hilbert_index_t hilbert_index = (i-params->png_config->initial_ip);
+      hilbert_coordinate_s  coordinate;
+      assert(params->hilbert_curve->get_coordinate(hilbert_index, &coordinate));
 
-      *column_pointer |= (1 << (hilbert_index%pixels_per_byte));
+      const png_bytep  row_pointer    =  params->row_pointers[coordinate.y];
+      png_byte        *column_pointer = &row_pointer[(coordinate.x%(max_coordinate))/8];
+
+      *column_pointer |= (1 << (coordinate.x%pixels_per_byte));
+    //  printf("(%u, %u) - %p - 0x%x\n", coordinate.x, coordinate.y, column_pointer, *column_pointer);
     }
   }
 }
