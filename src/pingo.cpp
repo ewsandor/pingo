@@ -586,7 +586,7 @@ bool load_ping_block_exclude_list(char * path, ping_block_excluded_ip_list_t * e
           if ((4 == items_read) ||
               (5 == items_read))
           {
-            ping_block_excluded_ip_s exclude_ip =
+            const ping_block_excluded_ip_s exclude_ip =
               {
                 .ip = (uint32_t)((byte_a << 24) | (byte_b << 16) | (byte_c << 8) | (byte_d)),
                 .subnet_mask = cidr_subnet_to_subnet_mask((5 == items_read)?subnet:32),
@@ -597,7 +597,7 @@ bool load_ping_block_exclude_list(char * path, ping_block_excluded_ip_list_t * e
             char subnet_string_buffer[IP_STRING_SIZE];
             ip_string(exclude_ip.ip, ip_string_buffer, sizeof(ip_string_buffer));
             ip_string(exclude_ip.subnet_mask, subnet_string_buffer, sizeof(subnet_string_buffer));
-            printf("Excluding IP %s with subnet mask %s.\n", ip_string_buffer, subnet_string_buffer);
+            printf("Loaded IP %s with subnet mask %s from exclude list file.\n", ip_string_buffer, subnet_string_buffer);
           }
           else
           {
