@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <pthread.h>
 #include <time.h>
+#include <vector>
 
 namespace sandor_laboratories
 {
@@ -13,6 +14,14 @@ namespace sandor_laboratories
     typedef uint32_t reply_time_t;
     #define PINGO_BLOCK_PING_TIME_NO_RESPONSE 0xFFFFFFFF
 
+    typedef struct
+    {
+      uint32_t ip;
+      uint32_t subnet_mask;
+
+    } ping_block_excluded_ip_s;
+    typedef std::vector<ping_block_excluded_ip_s> ping_block_excluded_ip_list_t;
+    
     typedef struct
     {
       bool reply_valid;
@@ -30,6 +39,7 @@ namespace sandor_laboratories
       bool            fixed_sequence_number;
       uint16_t        sequence_number;
       unsigned int    send_attempts;
+      ping_block_excluded_ip_list_t *excluded_ip_list;
     } ping_block_config_s;
 
     typedef struct 
@@ -47,6 +57,7 @@ namespace sandor_laboratories
         const unsigned int         address_count;
         const ping_block_config_s  config;
         ping_block_entry_s        *entry;
+        ping_block_excluded_ip_list_t excluded_ip_list;
 
         pthread_cond_t             dispatch_done_cond = PTHREAD_COND_INITIALIZER;
         bool                       dispatch_started;
@@ -58,6 +69,8 @@ namespace sandor_laboratories
         pthread_mutex_t            mutex = PTHREAD_MUTEX_INITIALIZER;
         void                       lock();
         void                       unlock();
+
+        bool                       exclude_ip_address(const uint32_t);
 
       public:
         static void init_config(ping_block_config_s*);

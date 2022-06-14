@@ -27,6 +27,7 @@ static const ping_block_config_s default_ping_block_config =
     .fixed_sequence_number = false,
     .sequence_number = 0,
     .send_attempts   = 5,
+    .excluded_ip_list = nullptr,
   };
 
 void ping_block_c::init_config(ping_block_config_s* new_config)
@@ -69,10 +70,34 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
     entry[i].ping_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
   }
 
+  if(config.excluded_ip_list)
+  {
+    for(ping_block_excluded_ip_list_t::iterator it = config.excluded_ip_list->begin(); it != config.excluded_ip_list->end(); it++)
+    {
+      if( ((it->ip | (~it->subnet_mask)) >= get_first_address()) &&
+          ((it->ip & ( it->subnet_mask)) <  get_last_address()) )
+      {
+        const ping_block_excluded_ip_s excluded_ip = 
+          {
+            .ip          = (it->ip & it->subnet_mask),
+            .subnet_mask = it->subnet_mask, 
+          };
+        excluded_ip_list.push_back(excluded_ip);
+
+        char ip_string_buffer[IP_STRING_SIZE];
+        char subnet_string_buffer[IP_STRING_SIZE];
+        ip_string(excluded_ip.ip, ip_string_buffer, sizeof(ip_string_buffer));
+        ip_string(excluded_ip.subnet_mask, subnet_string_buffer, sizeof(ip_string_buffer));
+        printf("Excluding IP %s with subnet mask %s from ping block.\n", ip_string_buffer, subnet_string_buffer);
+      }
+    }
+  }
+
   unlock();
 }
+
 ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count)
-  : ping_block_c(first_address, address_count, &default_ping_block_config) {};
+  : ping_block_c(first_address, address_count, &default_ping_block_config) {}
 
 ping_block_c::~ping_block_c()
 {
@@ -207,36 +232,39 @@ bool ping_block_c::dispatch()
 
         for(i = 0; i < config.ping_batch_size; i++)
         {
-          remaining_attempts = config.send_attempts;
-          send_sockaddr.sin_addr.s_addr = htonl(dest_address);
-          icmp_packet_meta.header.checksum = 0;
-          icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = 
-            (config.fixed_sequence_number?config.sequence_number:packet_id);
-          pingo_payload.dest_address = dest_address;
-          get_time(&pingo_payload.request_time);
-
-          ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
-
-          while(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
+          if(!exclude_ip_address(dest_address))
           {
-            ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
-            fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
-            switch(errno)
+            remaining_attempts = config.send_attempts;
+            send_sockaddr.sin_addr.s_addr = htonl(dest_address);
+            icmp_packet_meta.header.checksum = 0;
+            icmp_packet_meta.header.rest_of_header.id_seq_num.sequence_number = 
+              (config.fixed_sequence_number?config.sequence_number:packet_id);
+            pingo_payload.dest_address = dest_address;
+            get_time(&pingo_payload.request_time);
+
+            ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
+
+            while(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
             {
-             default:
+              ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
+              fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
+              switch(errno)
               {
-                remaining_attempts--;
-                if(0 == remaining_attempts)
+              default:
                 {
-                  fprintf(stderr, "Aborting further attempts to send ping.\n");
-                  safe_exit(1);
+                  remaining_attempts--;
+                  if(0 == remaining_attempts)
+                  {
+                    fprintf(stderr, "Aborting further attempts to send ping.\n");
+                    safe_exit(1);
+                  }
+                  else
+                  {
+                    fprintf(stderr, "Reattempting to send ping in 1s.  %u attempts remaining\n", remaining_attempts);
+                    sleep(1);
+                  }
+                  break;
                 }
-                else
-                {
-                  fprintf(stderr, "Reattempting to send ping in 1s.  %u attempts remaining\n", remaining_attempts);
-                  sleep(1);
-                }
-                break;
               }
             }
           }
@@ -409,4 +437,20 @@ ping_block_stats_s ping_block_c::get_stats()
   }
 
   return stats;
+}
+
+inline bool ping_block_c::exclude_ip_address(const uint32_t ip)
+{
+  bool ret_val = false;
+
+  for(ping_block_excluded_ip_list_t::iterator it = excluded_ip_list.begin(); it != excluded_ip_list.end(); it++)
+  {
+    if((ip & it->subnet_mask) == it->ip)
+    {
+      ret_val = true;
+      break;
+    }
+  }
+
+  return ret_val;
 }

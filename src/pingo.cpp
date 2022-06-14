@@ -34,6 +34,9 @@ typedef struct
   pingo_argument_status_e cooldown_status;
   uint32_t                cooldown;
 
+  pingo_argument_status_e exclude_list_status;
+  char                    exclude_list_path[FILE_PATH_MAX_LENGTH];
+
 } pingo_ping_block_arguments_s;
 
 typedef struct
@@ -62,7 +65,8 @@ const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           PROJECT_DESCRIPTION "\n\n"
                           "Options:\n"
                           "-c: Cooldown time in milliseconds between ping block batches\n"
-                          "-d: Directory to write ping data\n"
+                          "-d: Directory to read and write ping data\n"
+                          "-e: File containing a list of CIDR address to Exclude from scan.  One CIDR per line.\n"
                           "-i: Initial IP address to ping\n"
                           "-s: Size of ping blocks\n"
                           "-t: Ping block soaking Timeout\n"
@@ -309,6 +313,7 @@ typedef struct
   pingo_ping_block_arguments_s  ping_block_args;
   ping_logger_c                *ping_logger;
   uint32_t                      ping_block_first_address;
+  ping_block_excluded_ip_list_t *excluded_ip_list;
 } send_thread_args_s;
 
 void *send_thread_f(void* arg)
@@ -329,6 +334,7 @@ void *send_thread_f(void* arg)
   ping_block_config.verbose = false;
   ping_block_config.fixed_sequence_number = true;
   ping_block_config.sequence_number = getpid();
+  ping_block_config.excluded_ip_list = send_thread_args->excluded_ip_list;
 
   if(PINGO_ARGUMENT_VALID == send_thread_args->ping_block_args.initial_ip_status)
   {
@@ -548,6 +554,75 @@ void signal_handler(int signal)
   }
 } 
 
+inline uint32_t cidr_subnet_to_subnet_mask(unsigned int subnet)
+{
+  subnet = ((subnet<=32)?subnet:32);
+  return (((1L << subnet)-1) << (32-subnet));
+}
+
+bool load_ping_block_exclude_list(char * path, ping_block_excluded_ip_list_t * exclude_list)
+{
+  bool ret_val = true;
+
+  printf("Reading ping block IP exclude list '%s'.\n", path);
+
+  if(path && exclude_list)
+  {
+    FILE * fp = fopen(path, "r");
+
+    if(fp)
+    {
+      unsigned int line_number = 1;
+      while(!feof(fp))
+      {
+        char line[1024];
+        uint8_t byte_a, byte_b, byte_c, byte_d, subnet;
+
+        if((line == fgets(line, 1024, fp)) &&
+           (line[0] != '#') &&
+           (line[0] != '\n'))
+        {
+          const unsigned int items_read = sscanf(line, "%hhu.%hhu.%hhu.%hhu/%hhu", &byte_a, &byte_b, &byte_c, &byte_d, &subnet);
+          if ((4 == items_read) ||
+              (5 == items_read))
+          {
+            ping_block_excluded_ip_s exclude_ip =
+              {
+                .ip = (uint32_t)((byte_a << 24) | (byte_b << 16) | (byte_c << 8) | (byte_d)),
+                .subnet_mask = cidr_subnet_to_subnet_mask((5 == items_read)?subnet:32),
+              };
+            exclude_list->push_back(exclude_ip);
+
+            char ip_string_buffer[IP_STRING_SIZE];
+            char subnet_string_buffer[IP_STRING_SIZE];
+            ip_string(exclude_ip.ip, ip_string_buffer, sizeof(ip_string_buffer));
+            ip_string(exclude_ip.subnet_mask, subnet_string_buffer, sizeof(subnet_string_buffer));
+            printf("Excluding IP %s with subnet mask %s.\n", ip_string_buffer, subnet_string_buffer);
+          }
+          else
+          {
+            fprintf(stderr, "Line %u: Unexpected IP format.  Expected CIDR format ###.###.###.###/##. - %s", line_number, line);
+          }
+        }
+
+        line_number++;
+      }
+      assert(0 == fclose(fp));
+    }
+    else
+    {
+      fprintf(stderr, "Failed to open exclude list file '%s'.  errno %u: %s\n", path, errno, strerror(errno));
+      ret_val = false;
+    }
+  }
+  else
+  {
+    fprintf(stderr, "Null inputs to load exclude list.  path %p excluded_list %p", path, exclude_list);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
 
 bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
 {
@@ -558,7 +633,7 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:d:H:hi:s:t:v")) != ((char) -1))
+    while((o = getopt(argc, argv, "c:d:e:H:hi:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
@@ -580,6 +655,12 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
         {
           args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
           strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
+          break;
+        }
+        case 'e':
+        {
+          args->ping_block_args.exclude_list_status = PINGO_ARGUMENT_VALID;
+          strncpy(args->ping_block_args.exclude_list_path, optarg, sizeof(args->ping_block_args.exclude_list_path));
           break;
         }
         case 'H':
@@ -751,6 +832,15 @@ int main(int argc, char *argv[])
     send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
     send_thread_args.ping_block_args = args.ping_block_args;
     send_thread_args.ping_logger     = &ping_logger;
+    if(PINGO_ARGUMENT_VALID == args.ping_block_args.exclude_list_status)
+    {
+      send_thread_args.excluded_ip_list = new ping_block_excluded_ip_list_t();
+      if(!load_ping_block_exclude_list(args.ping_block_args.exclude_list_path, send_thread_args.excluded_ip_list))
+      {
+        fprintf(stderr, "Failed to load exclude list from %s.\n", args.ping_block_args.exclude_list_path);
+        safe_exit(1);
+      }
+    }
 
     memset(&writer_thread_args, 0, sizeof(writer_thread_args));
     writer_thread_args.args         = args.writer_args;
