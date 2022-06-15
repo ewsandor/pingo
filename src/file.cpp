@@ -495,10 +495,13 @@ void file_manager_c::sort_registry()
 {
   unsigned int i,j;
   registry_entry_s swap_buffer;
-  unsigned int valid_entries = FILE_REGISTRY_READ_AND_VALID(registry[0].state)?1:0; 
+  unsigned int valid_entries = 0; 
 
-  printf("%lu entries in registry\n", registry.size());
-
+  if( (registry.size() > 0) &&
+      FILE_REGISTRY_READ_AND_VALID(registry[0].state))
+  {
+    valid_entries++;
+  }
   /* Insertion sort */
   for(i = 1; i < registry.size(); i++)
   {
@@ -526,7 +529,6 @@ void file_manager_c::sort_registry()
     }
   }
   registry.resize(valid_entries);
-  printf("%lu entries in registry after sort\n", registry.size());
 }
 
 bool file_manager_c::add_file_to_registry(const char * file_name, const file_s* file, registry_entry_state_e state)

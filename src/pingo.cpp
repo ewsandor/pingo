@@ -771,6 +771,10 @@ int main(int argc, char *argv[])
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
 
+  signal(SIGINT,  signal_handler);
+  signal(SIGTERM, signal_handler);
+  signal(SIGQUIT, signal_handler);
+
 //  #define HILBERT_TEST
   #ifdef HILBERT_TEST
   hilbert_curve_c hilbert_curve(8);
@@ -786,7 +790,6 @@ int main(int argc, char *argv[])
   }
   safe_exit(0);
   #endif
-  
 
   assert(parse_pingo_args(argc, argv, &args));
 
@@ -803,11 +806,13 @@ int main(int argc, char *argv[])
   }
 
   file_manager = new file_manager_c((PINGO_ARGUMENT_VALID == args.writer_args.directory_status)?args.writer_args.directory:".");
-  file_manager->build_registry();
 
   if(PINGO_ARGUMENT_VALID == args.validate_status)
   {
     printf("Validating Pingo files.\n");
+
+    file_manager->build_registry();
+
     if(file_manager->validate_files_in_registry())
     {
       printf("Pingo files validated and complete!\n");
@@ -821,6 +826,9 @@ int main(int argc, char *argv[])
   {
     png_config_s png_config;
     init_png_config(&png_config);
+
+    file_manager->build_registry();
+
     png_config.image_args   = args.image_args;
     png_config.file_manager = file_manager;
     if(PINGO_ARGUMENT_VALID == args.ping_block_args.initial_ip_status)
@@ -836,11 +844,12 @@ int main(int argc, char *argv[])
   else
   {
     memset(&send_thread_args, 0, sizeof(send_thread_args));
-    send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
+    send_thread_args.ping_block_first_address = 0;
     send_thread_args.ping_block_args = args.ping_block_args;
     send_thread_args.ping_logger     = &ping_logger;
     if(PINGO_ARGUMENT_VALID == args.ping_block_args.exclude_list_status)
     {
+      printf("Reading excluded IP list.\n");
       send_thread_args.excluded_ip_list = new ping_block_excluded_ip_list_t();
       if(!load_ping_block_exclude_list(args.ping_block_args.exclude_list_path, send_thread_args.excluded_ip_list))
       {
@@ -849,14 +858,21 @@ int main(int argc, char *argv[])
       }
     }
 
+    if(PINGO_ARGUMENT_VALID == args.ping_block_args.initial_ip_status)
+    {
+      send_thread_args.ping_block_first_address = args.ping_block_args.initial_ip; 
+    }
+    else
+    {
+      printf("Reading data directory to find first hole of ping data.\n");
+      file_manager->build_registry();
+      send_thread_args.ping_block_first_address = file_manager->get_next_registry_hole_ip();
+    }
+
     memset(&writer_thread_args, 0, sizeof(writer_thread_args));
     writer_thread_args.args         = args.writer_args;
     writer_thread_args.ping_logger  = &ping_logger;
     writer_thread_args.file_manager = file_manager;
-
-    signal(SIGINT,  signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGQUIT, signal_handler);
 
     pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
     pthread_create(&writer_thread,      NULL, writer_thread_f, &writer_thread_args);

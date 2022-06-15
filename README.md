@@ -27,7 +27,7 @@ make
 ## Usage
 The basic usage of Pingo is with the command `pingo [OPTION]...`.  
 
-If no options are provided, Pingo will start pinging every IP address starting with address 0.0.0.0 or after the greatest IP from the Pingo data saved in the current working directory.  New data will be saved to the working directory.  This initial IP address may be be specified with the option `-i <###.###.###.###>` and the directory to read and write data may be specified with the option `-d <directory>`.  
+If no options are provided, Pingo will start pinging every IP address starting with address 0.0.0.0 or at the first IP not pinged in the Pingo data saved in the current working directory.  New data will be saved to the working directory.  This initial IP address may be be specified with the option `-i <###.###.###.###>` and the directory to read and write data may be specified with the option `-d <directory>`.  
 
 The dataset may be validated for corruption and completeness with the option `-v` and a Hilbert Curve PNG of the collected data may be generated with the option `-H <Hilbert Curve order>`.  
 
