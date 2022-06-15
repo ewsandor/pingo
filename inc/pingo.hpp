@@ -62,10 +62,13 @@ namespace sandor_laboratories
       PINGO_ARGUMENT_INVALID,
     } pingo_argument_status_e;
 
+    #define IMAGE_STRING_BUFFER_SIZE 1024
     typedef struct
     {
       pingo_argument_status_e hilbert_image_order_status;
       unsigned int            hilbert_image_order;
+      pingo_argument_status_e hilbert_image_author_status;
+      char                    hilbert_image_author[IMAGE_STRING_BUFFER_SIZE];
 
     } pingo_image_arguments_s;
   }

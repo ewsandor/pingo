@@ -64,6 +64,7 @@ typedef struct
 const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           PROJECT_DESCRIPTION "\n\n"
                           "Options:\n"
+                          "-a: Author name to embed in PNG metadata\n"
                           "-c: Cooldown time in milliseconds between ping block batches\n"
                           "-d: Directory to read and write ping data\n"
                           "-e: File containing a list of CIDR address to Exclude from scan.  One CIDR per line.\n"
@@ -633,10 +634,16 @@ bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "c:d:e:H:hi:s:t:v")) != ((char) -1))
+    while((o = getopt(argc, argv, "a:c:d:e:H:hi:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
+        case 'a':
+        {
+          args->image_args.hilbert_image_author_status = PINGO_ARGUMENT_VALID;
+          strncpy(args->image_args.hilbert_image_author, optarg, sizeof(args->image_args.hilbert_image_author));
+          break;
+        }
         case 'c':
         {
           if((sscanf(optarg, "%u%c", &args->ping_block_args.cooldown, &c) == 1))

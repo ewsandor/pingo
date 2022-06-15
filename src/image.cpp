@@ -152,57 +152,117 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
                           PNG_COMPRESSION_TYPE_DEFAULT, 
                           PNG_FILTER_TYPE_DEFAULT );
 
+            printf("Filling PNG timestamp.\n");
+            time_t time_now = time(NULL);
+            struct tm gmtime_now = *gmtime(&time_now);
+            png_time mod_time;
+            png_convert_from_struct_tm(&mod_time, &gmtime_now);
+            png_set_tIME(png_ptr, png_info_ptr, &mod_time);
+ 
             printf("Filling PNG text info.\n");
             
+            std::vector<png_text> png_text_array;
             char title_key[]      = "Title";
-            char title_text[]     = "Ping Reply Hilbert Curve";
-            char author_key[]     = "Author";
-            char author_text[]    = "Edward Sandor";
-            char copyright_key[]  = "Copyright";
-            char copyright_text[] = "Copyright 2022 Edward Sandor.  All rights reserved.";
+            char title_text[1024];
+            char ip_string_buffer_a[IP_STRING_SIZE];
+            char ip_string_buffer_b[IP_STRING_SIZE];
+            ip_string(png_config->initial_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+            ip_string((((uint_fast64_t) png_config->initial_ip)+hilbert_curve.max_index())-1, ip_string_buffer_b, sizeof(ip_string_buffer_a));
+            snprintf(title_text, sizeof(title_text), "ICMP Echo Replies (%s - %s)", ip_string_buffer_a, ip_string_buffer_b);
+            png_text_array.push_back
+              (
+                {
+                  .compression = PNG_TEXT_COMPRESSION_NONE,
+                  .key = title_key,
+                  .text = title_text,
+                  .text_length = strlen(title_text),
+                  .itxt_length = 0,
+                  .lang = nullptr,
+                  .lang_key = nullptr,
+                }
+              );
+            char description_key[]      = "Description";
+            char description_text[1024];
+            ip_string(png_config->initial_ip, ip_string_buffer_a, sizeof(ip_string_buffer_a));
+            ip_string((((uint_fast64_t) png_config->initial_ip)+hilbert_curve.max_index())-1, ip_string_buffer_b, sizeof(ip_string_buffer_a));
+            snprintf(description_text, sizeof(description_text), "ICMP echo replies for IP addresses %s - %s plotted with a %uth order Hilbert Curve.", ip_string_buffer_a, ip_string_buffer_b, hilbert_curve.get_order());
+            png_text_array.push_back
+              (
+                {
+                  .compression = PNG_TEXT_COMPRESSION_NONE,
+                  .key = description_key,
+                  .text = description_text,
+                  .text_length = strlen(description_text),
+                  .itxt_length = 0,
+                  .lang = nullptr,
+                  .lang_key = nullptr,
+                }
+              );
             char software_key[]   = "Software";
             char software_text[]  =  PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">";
-            png_text png_text_array[] = 
+            png_text_array.push_back
+              (
+                {
+                  .compression = PNG_TEXT_COMPRESSION_NONE,
+                  .key = software_key,
+                  .text = software_text,
+                  .text_length = strlen(software_text),
+                  .itxt_length = 0,
+                  .lang = nullptr,
+                  .lang_key = nullptr,
+                }
+              );
+            char time_key[] = "Creation Time";
+            char time_text[1024];
+            strftime(time_text, sizeof(time_text), "%a, %d %b %y %T %Z", &gmtime_now);
+            png_text_array.push_back
+              (
+                {
+                  .compression = PNG_TEXT_COMPRESSION_NONE,
+                  .key = time_key,
+                  .text = time_text,
+                  .text_length = strlen(time_text),
+                  .itxt_length = 0,
+                  .lang = nullptr,
+                  .lang_key = nullptr,
+                }
+              );
+            char author_key[] = "Author";
+            char author_text[IMAGE_STRING_BUFFER_SIZE];
+            char copyright_key[]  = "Copyright";
+            char copyright_text[2*IMAGE_STRING_BUFFER_SIZE];
+            if(PINGO_ARGUMENT_VALID == png_config->image_args.hilbert_image_author_status)
             {
-              {
-                .compression = PNG_TEXT_COMPRESSION_NONE,
-                .key = title_key,
-                .text = title_text,
-                .text_length = strlen(title_text),
-                .itxt_length = 0,
-                .lang = nullptr,
-                .lang_key = nullptr,
-              },
-              {
-                .compression = PNG_TEXT_COMPRESSION_NONE,
-                .key = author_key,
-                .text = author_text,
-                .text_length = strlen(author_text),
-                .itxt_length = 0,
-                .lang = nullptr,
-                .lang_key = nullptr,
-              },
-              {
-                .compression = PNG_TEXT_COMPRESSION_NONE,
-                .key = copyright_key,
-                .text = copyright_text,
-                .text_length = strlen(copyright_text),
-                .itxt_length = 0,
-                .lang = nullptr,
-                .lang_key = nullptr,
-              },
-              {
-                .compression = PNG_TEXT_COMPRESSION_NONE,
-                .key = software_key,
-                .text = software_text,
-                .text_length = strlen(software_text),
-                .itxt_length = 0,
-                .lang = nullptr,
-                .lang_key = nullptr,
-              },
-            };
+              strncpy(author_text, png_config->image_args.hilbert_image_author, sizeof(author_text));
+              png_text_array.push_back
+                (
+                  (png_text)
+                  {
+                    .compression = PNG_TEXT_COMPRESSION_NONE,
+                    .key = author_key,
+                    .text = author_text,
+                    .text_length = strlen(png_config->image_args.hilbert_image_author),
+                    .itxt_length = 0,
+                    .lang = nullptr,
+                    .lang_key = nullptr,
+                  }
+                );
+              snprintf(copyright_text, sizeof(copyright_text), "Copyright %u %s.  All rights reserved.", (1900+gmtime_now.tm_year), png_config->image_args.hilbert_image_author);
+              png_text_array.push_back
+                (
+                  {
+                    .compression = PNG_TEXT_COMPRESSION_NONE,
+                    .key = copyright_key,
+                    .text = copyright_text,
+                    .text_length = strlen(copyright_text),
+                    .itxt_length = 0,
+                    .lang = nullptr,
+                    .lang_key = nullptr,
+                  }
+                );
+            }
 
-            png_set_text(png_ptr, png_info_ptr, png_text_array, (sizeof(png_text_array)/sizeof(png_text)));
+            png_set_text(png_ptr, png_info_ptr, &png_text_array[0], png_text_array.size());
 
             printf("Writing PNG header info.\n");
             png_write_info(png_ptr, png_info_ptr);

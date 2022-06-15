@@ -46,6 +46,7 @@ namespace sandor_laboratories
         hilbert_index_t             max_index() const {return max_index(order);};
         static hilbert_coordinate_t max_coordinate(hilbert_order_t order);
         hilbert_coordinate_t        max_coordinate() const {return max_coordinate(order);};
+        hilbert_order_t             get_order() const {return order;};
     };
   }
 }
