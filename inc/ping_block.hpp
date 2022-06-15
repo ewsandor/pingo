@@ -21,12 +21,23 @@ namespace sandor_laboratories
 
     } ping_block_excluded_ip_s;
     typedef std::vector<ping_block_excluded_ip_s> ping_block_excluded_ip_list_t;
+
+    typedef enum
+    {
+      PING_BLOCK_IP_SKIP_REASON_NOT_SKIPPED,
+      PING_BLOCK_IP_SKIP_REASON_EXCLUDE_LIST,
+      PING_BLOCK_IP_SKIP_REASON_SOCKET_ERROR,
+      PING_BLOCK_IP_SKIP_REASON_MAX,
+    } ping_block_skip_reason_e;
     
     typedef struct
     {
-      bool reply_valid;
+      bool                     reply_valid;
       /* Ping time in ms, -1 for no response */
-      reply_time_t ping_time;
+      reply_time_t             ping_time;
+
+      ping_block_skip_reason_e skip_reason;
+      int                      skip_errno;
     } ping_block_entry_s;
 
     typedef struct 
@@ -45,6 +56,7 @@ namespace sandor_laboratories
     typedef struct 
     {
       unsigned int valid_replies;
+      unsigned int skipped_pings;
       reply_time_t min_reply_time;
       reply_time_t mean_reply_time;
       reply_time_t max_reply_time;

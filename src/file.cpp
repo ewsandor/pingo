@@ -326,6 +326,10 @@ file_stats_s file_manager_c::get_stats_from_file(const file_s* file)
           stats.max_reply_time = file->data[i].payload.echo_reply.reply_time;
         }
       }
+      else if(FILE_DATA_ENTRY_ECHO_SKIPPED == file->data[i].type)
+      {
+        stats.echos_skipped++;
+      }
     }
   }
 
@@ -436,6 +440,13 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
           file.data[i].payload.echo_reply.reply_time = 
             ((ping_block_entry.ping_time < FILE_ECHO_REPLY_TIME_MAX)?ping_block_entry.ping_time:FILE_ECHO_REPLY_TIME_MAX);
         }
+        else if(ping_block_entry.skip_reason != PING_BLOCK_IP_SKIP_REASON_NOT_SKIPPED)
+        {
+          file.data[i].type = FILE_DATA_ENTRY_ECHO_SKIPPED;
+          file.data[i].payload.echo_skipped.reason     = (file_data_entry_payload_echo_skip_reason_e) ping_block_entry.skip_reason;
+          file.data[i].payload.echo_skipped.error_code = 
+            ((((unsigned int) ping_block_entry.skip_errno) < FILE_ECHO_SKIPPED_ERROR_CODE_MAX)?ping_block_entry.skip_errno:FILE_ECHO_SKIPPED_ERROR_CODE_MAX);
+        }
         else
         {
           file.data[i].type = FILE_DATA_ENTRY_ECHO_NO_REPLY;
@@ -484,7 +495,9 @@ void file_manager_c::sort_registry()
 {
   unsigned int i,j;
   registry_entry_s swap_buffer;
-  unsigned int valid_entries = 0; 
+  unsigned int valid_entries = FILE_REGISTRY_READ_AND_VALID(registry[0].state)?1:0; 
+
+  printf("%lu entries in registry\n", registry.size());
 
   /* Insertion sort */
   for(i = 1; i < registry.size(); i++)
@@ -513,6 +526,7 @@ void file_manager_c::sort_registry()
     }
   }
   registry.resize(valid_entries);
+  printf("%lu entries in registry after sort\n", registry.size());
 }
 
 bool file_manager_c::add_file_to_registry(const char * file_name, const file_s* file, registry_entry_state_e state)
@@ -666,10 +680,10 @@ bool file_manager_c::validate_files_in_registry()
         if(config.stats_on_validation)
         {
           stats = get_stats_from_file(&it->file);
-          printf("File '%s' for IPs %s - %s validated. % 3d%% replied (count: %u, min: %u, mean: %u, max: %u)\n", 
+          printf("File '%s' for IPs %s - %s validated. % 3d%% replied (count: %u, min: %u, mean: %u, max: %u skipped: %u)\n", 
             it->file_name, ip_string_buffer_a, ip_string_buffer_b,
             (stats.valid_replies*100)/it->file.header.address_count, 
-            stats.valid_replies, stats.min_reply_time, stats.mean_reply_time, stats.max_reply_time);
+            stats.valid_replies, stats.min_reply_time, stats.mean_reply_time, stats.max_reply_time, stats.echos_skipped);
         }
         else
         {

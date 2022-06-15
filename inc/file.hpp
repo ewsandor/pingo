@@ -51,6 +51,7 @@ namespace sandor_laboratories
       FILE_DATA_ENTRY_INVALID,
       FILE_DATA_ENTRY_ECHO_REPLY,
       FILE_DATA_ENTRY_ECHO_NO_REPLY,
+      FILE_DATA_ENTRY_ECHO_SKIPPED,
       FILE_DATA_ENTRY_MAX,
     } file_data_entry_type_e;
 
@@ -61,18 +62,36 @@ namespace sandor_laboratories
       uint32_t reply_time:24;
     } file_data_entry_payload_echo_reply_s;
     
+    typedef enum 
+    {
+      FILE_DATA_ENTRY_ECHO_SKIP_REASON_NOT_SKIPPED,
+      FILE_DATA_ENTRY_ECHO_SKIP_REASON_EXCLUDE_LIST,
+      FILE_DATA_ENTRY_ECHO_SKIP_REASON_SOCKET_ERROR,
+      FILE_DATA_ENTRY_ECHO_SKIP_REASON_MAX,
+    } file_data_entry_payload_echo_skip_reason_e;
+    #define FILE_ECHO_SKIPPED_ERROR_CODE_MAX 0x000FFFFF
+    typedef struct __attribute__ ((packed))
+    {
+      /* Reason for skip */
+      file_data_entry_payload_echo_skip_reason_e reason:4;
+      /* Error code */
+      uint32_t error_code:20;
+
+    } file_data_entry_payload_echo_skipped_s;
 
     typedef union __attribute__ ((packed))
     {
       /* Data recording successful echo reply */
-      file_data_entry_payload_echo_reply_s echo_reply;
+      file_data_entry_payload_echo_reply_s   echo_reply;
+      /* Echo skipped for data entry */
+      file_data_entry_payload_echo_skipped_s echo_skipped;
     } file_data_entry_payload_u;
 
     typedef struct __attribute__ ((packed))
     { 
       /* Identifies type of data entry */
       file_data_entry_type_e    type:8;
-      /* Payload for data entry */
+      /* Payload for data entry - 24 bits*/
       file_data_entry_payload_u payload;
     } file_data_entry_s;
 
@@ -119,6 +138,7 @@ namespace sandor_laboratories
     typedef struct 
     {
       unsigned int valid_replies;
+      unsigned int echos_skipped;
       reply_time_t min_reply_time;
       reply_time_t mean_reply_time;
       reply_time_t max_reply_time;

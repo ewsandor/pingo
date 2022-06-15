@@ -294,10 +294,10 @@ void *writer_thread_f(void* arg)
     assert(ping_block == ping_logger->pop_ping_block());
     time_since_dispatch = ping_block->time_since_dispatch();
     ping_block_stats = ping_block->get_stats();
-    printf("Soaked %lu.%03lu seconds.  %u/%u (%u%%) replied (min:%u, mean:%u, max:%u)\n", 
+    printf("Soaked %lu.%03lu seconds.  %u/%u (%u%%) replied (min:%u, mean:%u, max:%u skipped: %u)\n", 
       time_since_dispatch.tv_sec, NANOSEC_TO_MS(time_since_dispatch.tv_nsec),
       ping_block_stats.valid_replies, ping_block->get_address_count(), (ping_block_stats.valid_replies*100)/ping_block->get_address_count(),
-      ping_block_stats.min_reply_time, ping_block_stats.mean_reply_time, ping_block_stats.max_reply_time);
+      ping_block_stats.min_reply_time, ping_block_stats.mean_reply_time, ping_block_stats.max_reply_time, ping_block_stats.skipped_pings);
     printf("Writing ping block to file\n");
     file_manager->write_ping_block_to_file(ping_block);
     delete ping_block;

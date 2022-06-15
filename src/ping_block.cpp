@@ -244,29 +244,45 @@ bool ping_block_c::dispatch()
 
             ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
 
-            while(icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr)))
+            while((remaining_attempts > 0) &&
+                  (icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr))))
             {
               ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
               fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
-              switch(errno)
+              remaining_attempts--;
+              if(0 == remaining_attempts)
               {
-              default:
-                {
-                  remaining_attempts--;
-                  if(0 == remaining_attempts)
+                fprintf(stderr, "Aborting further attempts to send ping.\n");
+                lock();
+                assert((dest_address >= get_first_address()) && ((dest_address-get_first_address()) < get_address_count()));
+                entry[(dest_address-get_first_address())] = 
                   {
-                    fprintf(stderr, "Aborting further attempts to send ping.\n");
-                    safe_exit(1);
-                  }
-                  else
-                  {
-                    fprintf(stderr, "Reattempting to send ping in 1s.  %u attempts remaining\n", remaining_attempts);
-                    sleep(1);
-                  }
-                  break;
-                }
+                    .reply_valid = false,
+                    .ping_time   = PINGO_BLOCK_PING_TIME_NO_RESPONSE,
+                    .skip_reason = PING_BLOCK_IP_SKIP_REASON_SOCKET_ERROR,
+                    .skip_errno  = errno,
+                  };
+                unlock();
+              }
+              else
+              {
+                fprintf(stderr, "Reattempting to send ping in 1s.  %u attempts remaining\n", remaining_attempts);
+                sleep(1);
               }
             }
+          }
+          else
+          {
+            lock();
+            assert((dest_address >= get_first_address()) && ((dest_address-get_first_address()) < get_address_count()));
+            entry[(dest_address-get_first_address())] = 
+              {
+                .reply_valid = false,
+                .ping_time   = PINGO_BLOCK_PING_TIME_NO_RESPONSE,
+                .skip_reason = PING_BLOCK_IP_SKIP_REASON_EXCLUDE_LIST,
+                .skip_errno  = -1,
+              };
+            unlock();
           }
           packet_id++;
           dest_address++;
@@ -422,7 +438,11 @@ ping_block_stats_s ping_block_c::get_stats()
       }
 
       stats.mean_reply_time += entry[i].ping_time;
-     }
+    }
+    else if(entry[i].skip_reason > 0)
+    {
+      stats.skipped_pings++;
+    }
   }
 
   unlock();
