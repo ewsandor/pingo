@@ -49,8 +49,7 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
       const png_bytep  row_pointer    =  params->row_pointers[coordinate.y];
       png_byte        *column_pointer = &row_pointer[(coordinate.x%(max_coordinate))/8];
 
-      *column_pointer |= (1 << (coordinate.x%pixels_per_byte));
-    //  printf("(%u, %u) - %p - 0x%x\n", coordinate.x, coordinate.y, column_pointer, *column_pointer);
+      *column_pointer |= (1 << ((coordinate.x%pixels_per_byte)*params->png_config->color_depth));
     }
   }
 }
