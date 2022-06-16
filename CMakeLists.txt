@@ -5,7 +5,7 @@ project(Pingo
         LANGUAGES CXX
         HOMEPAGE_URL "https://git.sandorlaboratories.com/edward/pingo")
 
-set(PROJECT_VERSION 0.1.0)
+set(PROJECT_VERSION 0.1.0-dev)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
