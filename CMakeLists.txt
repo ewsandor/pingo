@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(Pingo 
-        VERSION 0.0.1
         DESCRIPTION "A project to ping every single IPv4 address to experiment with basic networking in Linux. (ICMP, ip headers, raw sockets, etc)"
         LANGUAGES CXX
         HOMEPAGE_URL "https://git.sandorlaboratories.com/edward/pingo")
+
+set(PROJECT_VERSION 0.1.0)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
