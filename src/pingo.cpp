@@ -64,16 +64,16 @@ typedef struct
 const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                           PROJECT_DESCRIPTION "\n\n"
                           "Options:\n"
-                          "-a: Author name to embed in PNG metadata\n"
-                          "-c: Cooldown time in milliseconds between ping block batches\n"
-                          "-d: Directory to read and write ping data\n"
-                          "-e: File containing a list of CIDR address to Exclude from scan.  One CIDR per line.\n"
-                          "-i: Initial IP address to ping\n"
-                          "-s: Size of ping blocks\n"
-                          "-t: Ping block soaking Timeout\n"
-                          "-v: Validate pingo files at directory and exit\n"
-                          "-H: Create PNG of Hilbert Curve with given order starting at 0.0.0.0 or IP provided with -i\n"
-                          "-h: Display this Help text\n";
+                          "  -a: Author name to embed in PNG metadata\n"
+                          "  -c: Cooldown time in milliseconds between ping block batches\n"
+                          "  -d: Directory to read and write ping data\n"
+                          "  -e: File containing a list of CIDR address to Exclude from scan (one CIDR per line)\n"
+                          "  -i: Initial IP address to ping\n"
+                          "  -s: Size of ping blocks\n"
+                          "  -t: Ping block soaking Timeout\n"
+                          "  -v: Validate pingo files at directory and exit\n"
+                          "  -H: Create PNG of Hilbert Curve with given order starting at 0.0.0.0 or IP provided with -i\n"
+                          "  -h: Display this Help text\n";
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  exit_cond  = PTHREAD_COND_INITIALIZER;
