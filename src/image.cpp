@@ -36,6 +36,7 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
   const uint_fast64_t        last_ip         = ((uint_fast64_t)params->png_config->initial_ip) + max_index;
   const uint_fast64_t        file_last_ip    = file->header.first_address + file->header.address_count;
   const unsigned int         pixels_per_byte = (8/params->png_config->color_depth);
+  const unsigned int         pixel_depth_mask = ((1<<params->png_config->color_depth)-1);
 
   for(uint_fast64_t i = MAX(params->png_config->initial_ip, file->header.first_address); i < MIN(last_ip, file_last_ip); i++)
   {
@@ -47,9 +48,15 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
       assert(params->hilbert_curve->get_coordinate(hilbert_index, &coordinate));
 
       const png_bytep  row_pointer    =  params->row_pointers[coordinate.y];
-      png_byte        *column_pointer = &row_pointer[(coordinate.x%(max_coordinate))/8];
+      png_byte        *column_pointer = &row_pointer[(coordinate.x%(max_coordinate))/pixels_per_byte];
 
-      *column_pointer |= (1 << ((coordinate.x%pixels_per_byte)*params->png_config->color_depth));
+      unsigned int value = 1;
+      if(file_data_entry->payload.echo_reply.reply_time < params->png_config->depth_scale_reference)
+      {
+        value = pixel_depth_mask - ((file_data_entry->payload.echo_reply.reply_time * pixel_depth_mask)/params->png_config->depth_scale_reference);
+      }
+
+      *column_pointer |= ((value & pixel_depth_mask) << ((coordinate.x%pixels_per_byte)*params->png_config->color_depth));
     }
   }
 }
