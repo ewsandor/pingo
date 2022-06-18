@@ -104,6 +104,17 @@ void png_error_handler(png_structp, png_const_charp error_string)
   safe_exit(1);
 }
 
+void png_write_row_cb(png_structp png_ptr, png_uint_32 row, int pass)
+{
+  UNUSED(png_ptr);
+  UNUSED(pass);
+
+  if(0 == row % (4*256))
+  {
+    printf("PNG writing row %u of PNG.\n", row);
+  }
+}
+
 void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_config)
 {
   if(png_config && png_config->file_manager)
@@ -148,6 +159,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
           {
             printf("Initializing PNG file.\n");
             png_init_io(png_ptr, fp);
+            png_set_write_status_fn(png_ptr, png_write_row_cb);
 
             printf("Filling PNG header info.\n");
             png_set_IHDR( png_ptr, png_info_ptr, 
@@ -165,7 +177,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
             assert((1 << png_config->color_depth) <= PNG_MAX_PALETTE_LENGTH);
             for(unsigned int i = 1; i < (1U << png_config->color_depth); i++)
             {
-              unsigned int value = ((i * 256)-1)/((1 << png_config->color_depth)-1);
+              unsigned int value = (((i * 256)-1)/((1 << png_config->color_depth)-1));
               palette[i].red   = value;
               palette[i].green = value;
               palette[i].blue  = value;
