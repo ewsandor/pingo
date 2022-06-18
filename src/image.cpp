@@ -153,10 +153,24 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
             png_set_IHDR( png_ptr, png_info_ptr, 
                           max_coordinate, max_coordinate, 
                           png_config->color_depth, 
-                          PNG_COLOR_TYPE_GRAY, 
+                          PNG_COLOR_TYPE_PALETTE, 
                           PNG_INTERLACE_NONE, 
                           PNG_COMPRESSION_TYPE_DEFAULT, 
                           PNG_FILTER_TYPE_DEFAULT );
+
+
+            printf("Filling PNG palette.\n");
+            png_color palette[PNG_MAX_PALETTE_LENGTH];
+            memset(palette, 0, sizeof(palette));
+            assert((1 << png_config->color_depth) <= PNG_MAX_PALETTE_LENGTH);
+            for(unsigned int i = 1; i < (1U << png_config->color_depth); i++)
+            {
+              unsigned int value = ((i * 256)-1)/((1 << png_config->color_depth)-1);
+              palette[i].red   = value;
+              palette[i].green = value;
+              palette[i].blue  = value;
+            }
+            png_set_PLTE(png_ptr,png_info_ptr, palette, (1 << png_config->color_depth));
 
             printf("Filling PNG timestamp.\n");
             time_t time_now = time(NULL);
