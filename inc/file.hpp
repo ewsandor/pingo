@@ -2,11 +2,11 @@
 #define __FILE_HPP__
 
 #include <cstdint>
-#include <linux/limits.h>
 #include <openssl/evp.h>
 #include <vector>
 
 #include "ping_block.hpp"
+#include "pingo.hpp"
 
 namespace sandor_laboratories
 {
@@ -18,10 +18,6 @@ namespace sandor_laboratories
     #define MD5_SIZE 16
     /* Checksum is MD5 */
     #define FILE_CHECKSUM_SIZE MD5_SIZE
-
-    /* Maximum path length */
-    #define FILE_NAME_MAX_LENGTH NAME_MAX
-    #define FILE_PATH_MAX_LENGTH PATH_MAX
 
     typedef enum
     {

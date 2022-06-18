@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <linux/limits.h>
 
 namespace sandor_laboratories
 {
@@ -14,6 +15,10 @@ namespace sandor_laboratories
 
     #define MAX(a,b) ((a>b)?a:b)
     #define MIN(a,b) ((a<b)?a:b)
+
+    /* Maximum path length */
+    #define FILE_NAME_MAX_LENGTH NAME_MAX
+    #define FILE_PATH_MAX_LENGTH PATH_MAX
 
     typedef struct 
     {
@@ -53,24 +58,6 @@ namespace sandor_laboratories
     void safe_exit(int status);
     void block_exit(exit_block_reason_e);
     void unblock_exit(exit_block_reason_e);
-
-    /* Argument Types */
-    typedef enum
-    {
-      PINGO_ARGUMENT_UNSPECIFIED,
-      PINGO_ARGUMENT_VALID,
-      PINGO_ARGUMENT_INVALID,
-    } pingo_argument_status_e;
-
-    #define IMAGE_STRING_BUFFER_SIZE 1024
-    typedef struct
-    {
-      pingo_argument_status_e hilbert_image_order_status;
-      unsigned int            hilbert_image_order;
-      pingo_argument_status_e hilbert_image_author_status;
-      char                    hilbert_image_author[IMAGE_STRING_BUFFER_SIZE];
-
-    } pingo_image_arguments_s;
   }
 }
  

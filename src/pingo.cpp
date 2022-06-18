@@ -8,7 +8,6 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 #include "file.hpp"
 #include "icmp.hpp"
@@ -16,64 +15,11 @@
 #include "ping_block.hpp"
 #include "ping_logger.hpp"
 #include "pingo.hpp"
-#include "version.hpp"
 
 #include "hilbert.hpp"
 #include "image.hpp"
 
 using namespace sandor_laboratories::pingo;
-
-typedef struct
-{
-  pingo_argument_status_e initial_ip_status;
-  uint32_t                initial_ip;
-
-  pingo_argument_status_e address_length_status;
-  uint32_t                address_length;
-
-  pingo_argument_status_e cooldown_status;
-  uint32_t                cooldown;
-
-  pingo_argument_status_e exclude_list_status;
-  char                    exclude_list_path[FILE_PATH_MAX_LENGTH];
-
-} pingo_ping_block_arguments_s;
-
-typedef struct
-{
-  pingo_argument_status_e directory_status;
-  char                    directory[FILE_PATH_MAX_LENGTH];
-
-  pingo_argument_status_e soak_timeout_status;
-  unsigned int            soak_timeout;
-} pingo_writer_arguments_s;
-
-typedef struct 
-{
-  bool                         unexpected_arg;
-
-  pingo_argument_status_e      help_request;
-  pingo_argument_status_e      validate_status;
-
-  pingo_image_arguments_s      image_args;
-  pingo_ping_block_arguments_s ping_block_args;
-  pingo_writer_arguments_s     writer_args;
-
-} pingo_arguments_s;
-
-const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
-                          PROJECT_DESCRIPTION "\n\n"
-                          "Options:\n"
-                          "  -a: Author name to embed in PNG metadata\n"
-                          "  -c: Cooldown time in milliseconds between ping block batches\n"
-                          "  -d: Directory to read and write ping data\n"
-                          "  -e: File containing a list of CIDR address to Exclude from scan (one CIDR per line)\n"
-                          "  -i: Initial IP address to ping\n"
-                          "  -s: Size of ping blocks\n"
-                          "  -t: Ping block soaking Timeout\n"
-                          "  -v: Validate pingo files at directory and exit\n"
-                          "  -H: Create PNG of Hilbert Curve with given order starting at 0.0.0.0 or IP provided with -i\n"
-                          "  -h: Display this Help text\n";
 
 pthread_mutex_t exit_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  exit_cond  = PTHREAD_COND_INITIALIZER;
@@ -625,143 +571,6 @@ bool load_ping_block_exclude_list(char * path, ping_block_excluded_ip_list_t * e
   return ret_val;
 }
 
-bool parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
-{
-  bool ret_val = true;
-  char o,c;
-
-  if(args)
-  {
-    memset(args, 0, sizeof(pingo_arguments_s));
-
-    while((o = getopt(argc, argv, "a:c:d:e:H:hi:s:t:v")) != ((char) -1))
-    {
-      switch(o)
-      {
-        case 'a':
-        {
-          args->image_args.hilbert_image_author_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->image_args.hilbert_image_author, optarg, sizeof(args->image_args.hilbert_image_author));
-          break;
-        }
-        case 'c':
-        {
-          if((sscanf(optarg, "%u%c", &args->ping_block_args.cooldown, &c) == 1))
-          {
-            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-s %s: ping block cooldown format incorrect.  Expected ms as decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 'd':
-        {
-          args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
-          break;
-        }
-        case 'e':
-        {
-          args->ping_block_args.exclude_list_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->ping_block_args.exclude_list_path, optarg, sizeof(args->ping_block_args.exclude_list_path));
-          break;
-        }
-        case 'H':
-        {
-          if( (sscanf(optarg, "%u%c", &args->image_args.hilbert_image_order, &c) == 1) &&
-              (args->image_args.hilbert_image_order >   0) &&
-              (args->image_args.hilbert_image_order <= 16) )
-          {
-            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-H %s: Hilbert Curve order format incorrect.  Expected order as unsigned decimal integer <= 16.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-
-          break;
-        }
-        case 'h':
-        {
-          args->help_request = PINGO_ARGUMENT_VALID;
-          break;
-        }
-        case 'i':
-        {
-          uint8_t ip_a, ip_b, ip_c, ip_d;
-          if(sscanf(optarg, "%hhu.%hhu.%hhu.%hhu%c", &ip_a, &ip_b, &ip_c, &ip_d, &c) == 4)
-          {
-            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_VALID;
-            args->ping_block_args.initial_ip = (ip_a<<24) | (ip_b<<16) | (ip_c<<8) | (ip_d);
-          }
-          else
-          {
-            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-i %s: initial IP address format incorrect.  Expected IP in decimal format \'###.###.###.###\'.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 's':
-        {
-          if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &c) == 1))
-          {
-            args->ping_block_args.address_length_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->ping_block_args.address_length_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-s %s: ping block size format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 't':
-        {
-          if((sscanf(optarg, "%u%c", &args->writer_args.soak_timeout, &c) == 1))
-          {
-            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-t %s: soak timeout format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 'v':
-        {
-          args->validate_status = PINGO_ARGUMENT_VALID;
-          break;
-        }
-        case '?':
-        {
-          args->unexpected_arg = true;
-          break;
-        }
-        default:
-        {
-          ret_val = false;
-          break;
-        }
-      }
-    }
-  }
-  else
-  {
-    ret_val = false;
-  }
-
-  return ret_val;
-}
-
 int main(int argc, char *argv[])
 {
   pingo_arguments_s args;
@@ -801,7 +610,7 @@ int main(int argc, char *argv[])
       status = 22;
     }
 
-    printf("%s\n", help_string);
+    printf("%s\n", get_help_string());
     exit(status);
   }
 
@@ -835,6 +644,7 @@ int main(int argc, char *argv[])
     {
       png_config.initial_ip = args.ping_block_args.initial_ip;
     }
+    png_config.color_depth = ((PINGO_ARGUMENT_VALID == args.image_args.pixel_depth_status)?args.image_args.pixel_depth:1);
     char ip_string_buffer[IP_STRING_SIZE];
     ip_string(png_config.initial_ip, ip_string_buffer, sizeof(ip_string_buffer), '_', true);
     sprintf(png_config.image_file_path, "%s_hilbert_%02u_color_depth_%u.png", 

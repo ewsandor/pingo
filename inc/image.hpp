@@ -1,6 +1,9 @@
 #ifndef __IMAGE_HPP__
 #define __IMAGE_HPP__
 
+#include <stdint.h>
+
+#include "argument.hpp"
 #include "file.hpp"
 #include "pingo.hpp"
 
