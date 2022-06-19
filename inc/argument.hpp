@@ -64,6 +64,9 @@ namespace sandor_laboratories
       pingo_argument_status_e      help_request;
       pingo_argument_status_e      validate_status;
 
+      pingo_argument_status_e      threads_status;
+      uint32_t                     threads;
+
       pingo_image_arguments_s      image_args;
       pingo_ping_block_arguments_s ping_block_args;
       pingo_writer_arguments_s     writer_args;

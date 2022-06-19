@@ -575,7 +575,6 @@ int main(int argc, char *argv[])
 {
   pingo_arguments_s args;
   ping_logger_c ping_logger;
-  pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
   file_manager_c *file_manager;
   send_thread_args_s send_thread_args;
   writer_thread_args_s writer_thread_args;
@@ -648,6 +647,7 @@ int main(int argc, char *argv[])
     }
     png_config.color_depth = ((PINGO_ARGUMENT_VALID == args.image_args.pixel_depth_status)?args.image_args.pixel_depth:1);
     png_config.depth_scale_reference = SECONDS_TO_MS(((PINGO_ARGUMENT_VALID == args.writer_args.soak_timeout_status)?args.writer_args.soak_timeout:60));
+    png_config.threads = ((PINGO_ARGUMENT_VALID == args.threads_status)?args.threads:1);
 
     if( (png_config.reserved_colors > (1U << png_config.color_depth)) ||
         (((1 << png_config.color_depth)-png_config.reserved_colors) < 2) )
@@ -670,6 +670,8 @@ int main(int argc, char *argv[])
   }
   else
   {
+    pthread_t log_handler_thread, writer_thread, recv_thread, send_thread;
+
     memset(&send_thread_args, 0, sizeof(send_thread_args));
     send_thread_args.ping_block_first_address = 0;
     send_thread_args.ping_block_args = args.ping_block_args;

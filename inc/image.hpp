@@ -15,9 +15,12 @@ namespace sandor_laboratories
     {
       pingo_image_arguments_s  image_args;
 
+      unsigned int             threads;
+
       file_manager_c          *file_manager;
       char                     image_file_path[FILE_PATH_MAX_LENGTH];
       uint32_t                 initial_ip;
+
       unsigned int             color_depth;
       unsigned int             reserved_colors;
       unsigned int             depth_scale_reference;

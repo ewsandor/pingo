@@ -169,7 +169,9 @@ namespace sandor_laboratories
 
         bool add_file_to_registry(const char *, const file_s*, registry_entry_state_e);
         void sort_registry       ();
-        bool load_file_data      (registry_entry_s*);
+        static bool load_file_data      (registry_entry_s*);
+
+        static void * iterate_file_registry_thread_f(void * void_arg);
 
       public:
         file_manager_c(const char * working_directory);
@@ -178,7 +180,7 @@ namespace sandor_laboratories
         bool build_registry();
         bool validate_files_in_registry();
         uint32_t get_next_registry_hole_ip();
-        void iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address = 0, uint_fast64_t address_count = (1L<<32));
+        void iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address = 0, uint_fast64_t address_count = (1L<<32), const unsigned int threads = 1);
 
         bool write_ping_block_to_file(ping_block_c*);
     };

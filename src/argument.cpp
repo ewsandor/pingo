@@ -17,6 +17,7 @@ static const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL "
                                  "  -d: Directory to read and write ping data\n"
                                  "  -e: File containing a list of CIDR address to Exclude from scan (one CIDR per line)\n"
                                  "  -i: Initial IP address to ping\n"
+                                 "  -j: Threads to use for parallel operations\n"
                                  "  -r: Reserve some number of color channels in PNG palette for user annotation\n"
                                  "        Required to leave a minimum two channels for plotting reply/no reply data ((2^depth)-reserved_channels >= 2)\n"
                                  "  -s: Size of ping blocks\n"
@@ -39,7 +40,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "a:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
+    while((o = getopt(argc, argv, "a:c:D:d:e:H:hi:j:r:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
@@ -132,6 +133,20 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
           }
           break;
         }
+        case 'j':
+        {
+          if((sscanf(optarg, "%u%c", &args->threads, &c) == 1) && (args->threads > 0))
+          {
+            args->threads_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->threads_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-j %s: Number of threads format incorrect.  Expected unsigned decimal integer greater than zero.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+          break;
+        }
         case 'r':
         {
           if((sscanf(optarg, "%u%c", &args->image_args.reserved_colors, &c) == 1))
@@ -146,7 +161,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
           }
           break;
         }
-         case 's':
+        case 's':
         {
           if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &c) == 1))
           {
