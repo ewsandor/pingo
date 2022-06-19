@@ -19,6 +19,7 @@ namespace sandor_laboratories
       char                     image_file_path[FILE_PATH_MAX_LENGTH];
       uint32_t                 initial_ip;
       unsigned int             color_depth;
+      unsigned int             reserved_colors;
       unsigned int             depth_scale_reference;
 
     } png_config_s;

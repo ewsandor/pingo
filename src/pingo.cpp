@@ -636,21 +636,36 @@ int main(int argc, char *argv[])
     png_config_s png_config;
     init_png_config(&png_config);
 
-    file_manager->build_registry();
-
     png_config.image_args   = args.image_args;
     png_config.file_manager = file_manager;
     if(PINGO_ARGUMENT_VALID == args.ping_block_args.initial_ip_status)
     {
       png_config.initial_ip = args.ping_block_args.initial_ip;
     }
+    if(PINGO_ARGUMENT_VALID == args.image_args.reserved_color_status)
+    {
+      png_config.reserved_colors = args.image_args.reserved_colors;
+    }
     png_config.color_depth = ((PINGO_ARGUMENT_VALID == args.image_args.pixel_depth_status)?args.image_args.pixel_depth:1);
     png_config.depth_scale_reference = SECONDS_TO_MS(((PINGO_ARGUMENT_VALID == args.writer_args.soak_timeout_status)?args.writer_args.soak_timeout:60));
+
+    if( (png_config.reserved_colors > (1U << png_config.color_depth)) ||
+        (((1 << png_config.color_depth)-png_config.reserved_colors) < 2) )
+    {
+      fprintf(stderr, 
+        "Too many reserved colors requested for generating PNG.  Pixel depth %u (%u colors) reserved %u colors.  2 colors needed to plot ping replies.\n",
+        png_config.color_depth, (1U << png_config.color_depth), png_config.reserved_colors);
+      safe_exit(1);
+    }
+
     char ip_string_buffer[IP_STRING_SIZE];
     ip_string(png_config.initial_ip, ip_string_buffer, sizeof(ip_string_buffer), '_', true);
-    sprintf(png_config.image_file_path, "%s_hilbert_%02u_color_depth_%u_timeout_%03u.png", 
+    sprintf(png_config.image_file_path, "%s_hilbert_%02u_color_depth_%u_timeout_%03u_reserved_%03u.png", 
             ip_string_buffer, png_config.image_args.hilbert_image_order, png_config.color_depth,
-            MS_TO_SECONDS(png_config.depth_scale_reference));
+            MS_TO_SECONDS(png_config.depth_scale_reference), png_config.reserved_colors);
+
+    printf("Scanning data files. \n"); 
+    file_manager->build_registry();
     generate_png_image(&png_config);
   }
   else

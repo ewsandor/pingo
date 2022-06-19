@@ -17,6 +17,8 @@ static const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL "
                                  "  -d: Directory to read and write ping data\n"
                                  "  -e: File containing a list of CIDR address to Exclude from scan (one CIDR per line)\n"
                                  "  -i: Initial IP address to ping\n"
+                                 "  -r: Reserve some number of color channels in PNG palette for user annotation\n"
+                                 "        Required to leave a minimum two channels for plotting reply/no reply data ((2^depth)-reserved_channels >= 2)\n"
                                  "  -s: Size of ping blocks\n"
                                  "  -t: Ping block soaking Timeout\n"
                                  "  -v: Validate pingo files at directory and exit\n"
@@ -37,7 +39,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "a:c:D:d:e:H:hi:s:t:v")) != ((char) -1))
+    while((o = getopt(argc, argv, "a:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
     {
       switch(o)
       {
@@ -130,7 +132,21 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
           }
           break;
         }
-        case 's':
+        case 'r':
+        {
+          if((sscanf(optarg, "%u%c", &args->image_args.reserved_colors, &c) == 1))
+          {
+            args->image_args.reserved_color_status = PINGO_ARGUMENT_VALID;
+          }
+          else
+          {
+            args->image_args.reserved_color_status = PINGO_ARGUMENT_INVALID;
+            fprintf(stderr, "-r %s: Reserved color format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
+            args->unexpected_arg = true;
+          }
+          break;
+        }
+         case 's':
         {
           if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &c) == 1))
           {

@@ -23,6 +23,8 @@ namespace sandor_laboratories
     {
       pingo_argument_status_e pixel_depth_status;
       uint32_t                pixel_depth;
+      pingo_argument_status_e reserved_color_status;
+      uint32_t                reserved_colors;
       pingo_argument_status_e hilbert_image_order_status;
       unsigned int            hilbert_image_order;
       pingo_argument_status_e hilbert_image_author_status;

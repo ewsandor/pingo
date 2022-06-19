@@ -31,12 +31,13 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
   ip_string(file->header.first_address, ip_string_buffer, sizeof(ip_string_buffer));
   printf("Filling image data for file starting at IP %s with %u IPs.\n", ip_string_buffer, file->header.address_count);
 
-  const hilbert_index_t      max_index       = params->hilbert_curve->max_index();
-  const hilbert_coordinate_t max_coordinate  = params->hilbert_curve->max_coordinate();
-  const uint_fast64_t        last_ip         = ((uint_fast64_t)params->png_config->initial_ip) + max_index;
-  const uint_fast64_t        file_last_ip    = file->header.first_address + file->header.address_count;
-  const unsigned int         pixels_per_byte = (8/params->png_config->color_depth);
+  const hilbert_index_t      max_index        = params->hilbert_curve->max_index();
+  const hilbert_coordinate_t max_coordinate   = params->hilbert_curve->max_coordinate();
+  const uint_fast64_t        last_ip          = ((uint_fast64_t)params->png_config->initial_ip) + max_index;
+  const uint_fast64_t        file_last_ip     = file->header.first_address + file->header.address_count;
+  const unsigned int         pixels_per_byte  = (8/params->png_config->color_depth);
   const unsigned int         pixel_depth_mask = ((1<<params->png_config->color_depth)-1);
+  const unsigned int         max_value        = (pixel_depth_mask - params->png_config->reserved_colors);
 
   for(uint_fast64_t i = MAX(params->png_config->initial_ip, file->header.first_address); i < MIN(last_ip, file_last_ip); i++)
   {
@@ -53,7 +54,7 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
       unsigned int value = 1;
       if(file_data_entry->payload.echo_reply.reply_time < params->png_config->depth_scale_reference)
       {
-        value = pixel_depth_mask - ((file_data_entry->payload.echo_reply.reply_time * pixel_depth_mask)/params->png_config->depth_scale_reference);
+        value = max_value - ((file_data_entry->payload.echo_reply.reply_time * max_value)/params->png_config->depth_scale_reference);
       }
 
       *column_pointer |= ((value & pixel_depth_mask) << ((coordinate.x%pixels_per_byte)*params->png_config->color_depth));
@@ -109,9 +110,11 @@ void png_write_row_cb(png_structp png_ptr, png_uint_32 row, int pass)
   UNUSED(png_ptr);
   UNUSED(pass);
 
+  assert(max_coordinate);
+
   if(0 == row % (4*256))
   {
-    printf("PNG writing row %u of PNG.\n", row);
+    printf("%3u%% of PNG written to file.\n", ((row*100)/max_coordinate));
   }
 }
 
@@ -177,10 +180,21 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
             assert((1 << png_config->color_depth) <= PNG_MAX_PALETTE_LENGTH);
             for(unsigned int i = 1; i < (1U << png_config->color_depth); i++)
             {
-              unsigned int value = (((i * 256)-1)/((1 << png_config->color_depth)-1));
-              palette[i].red   = value;
-              palette[i].green = value;
-              palette[i].blue  = value;
+              const unsigned int max_value = ((1U << png_config->color_depth)-png_config->reserved_colors);
+              unsigned int intensity = ((0xFF*i)/(max_value-1));
+
+              if(i < max_value)
+              {
+                palette[i].red   = intensity;
+                palette[i].green = intensity;
+                palette[i].blue  = intensity;
+              }
+              else
+              {
+                palette[i].red   = (0 == (i%3))?0xFF:0;
+                palette[i].green = (1 == (i%3))?0xFF:0;
+                palette[i].blue  = (2 == (i%3))?0xFF:0;
+              }
             }
             png_set_PLTE(png_ptr,png_info_ptr, palette, (1 << png_config->color_depth));
 
