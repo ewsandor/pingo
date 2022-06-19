@@ -742,38 +742,78 @@ bool file_manager_c::load_file_data(registry_entry_s* registry_entry)
   return ret_val;
 }
 
-void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address, uint_fast64_t address_count)
+typedef struct 
+{
+  registry_entry_s& registry_entry;
+  uint32_t first_address;
+  uint_fast64_t address_count;
+  file_iterator_cb callback;
+  const void * user_data_ptr;
+} iterate_file_registry_thread_arg_s;
+
+void * file_manager_c::iterate_file_registry_thread_f(void * void_arg)
+{
+  assert(void_arg);
+  iterate_file_registry_thread_arg_s * arg = (iterate_file_registry_thread_arg_s *) void_arg; 
+
+  if(FILE_REGISTRY_VALID_HEADER(arg->registry_entry.state))
+  {
+    uint_fast64_t file_last_address = (arg->registry_entry.file.header.first_address + arg->registry_entry.file.header.address_count);
+    const uint_fast64_t last_address = arg->first_address+arg->address_count;
+
+    if( (file_last_address > arg->registry_entry.file.header.first_address) &&
+        (arg->first_address < file_last_address) &&
+        (arg->registry_entry.file.header.first_address < last_address) )
+    {
+      load_file_data(&(arg->registry_entry));
+      if(FILE_REGISTRY_ENTRY_READ_VALID == arg->registry_entry.state)
+      {
+        arg->callback(&arg->registry_entry.file, arg->user_data_ptr);
+        arg->registry_entry.state = FILE_REGISTRY_ENTRY_READ_HEADER_ONLY_VALIDATED;
+        delete_file_data(&arg->registry_entry.file);
+      }
+    }
+  }
+
+  return nullptr;
+}
+
+void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void * user_data_ptr, uint32_t first_address, uint_fast64_t address_count, const unsigned int threads)
 {
   const uint_fast64_t last_address = first_address+address_count;
+
+  assert(threads > 0);
 
   if(callback && (last_address > first_address))
   {
     sort_registry();
 
+    pthread_t                          *thread = (pthread_t *) calloc(sizeof(pthread_t), threads);
+    iterate_file_registry_thread_arg_s *iterate_file_registry_thread_arg = (iterate_file_registry_thread_arg_s*)calloc(sizeof(iterate_file_registry_thread_arg_s), threads);
+    unsigned int next_thread = 0;
+
+    for(unsigned int i = 0; i < threads; i++)
+    {
+      iterate_file_registry_thread_arg[i].first_address = first_address;
+      iterate_file_registry_thread_arg[i].address_count = address_count;
+      iterate_file_registry_thread_arg[i].callback      = callback;
+      iterate_file_registry_thread_arg[i].user_data_ptr = user_data_ptr;
+    }
+
     std::vector<registry_entry_s>::iterator it;
     for(it = registry.begin(); it != registry.end(); it++)
     {
-      if(FILE_REGISTRY_VALID_HEADER(it->state))
+      if(it->file.header.first_address >= last_address)
       {
-        uint_fast64_t file_last_address = (it->file.header.first_address + it->file.header.address_count);
-        if( (file_last_address > it->file.header.first_address) &&
-            (first_address < file_last_address) &&
-            (it->file.header.first_address < last_address) )
-        {
-          load_file_data(&(*it));
-          if(FILE_REGISTRY_ENTRY_READ_VALID == it->state)
-          {
-            callback(&it->file, user_data_ptr);
-            it->state = FILE_REGISTRY_ENTRY_READ_HEADER_ONLY_VALIDATED;
-            delete_file_data(&it->file);
-          }
-        }
-
-        if(it->file.header.first_address >= last_address)
-        {
-          break;
-        }
+        break;
       }
+      iterate_file_registry_thread_arg[next_thread].registry_entry = *it;
+      assert(0 == pthread_join(thread[next_thread], nullptr));
+      pthread_create(&thread[next_thread], NULL, iterate_file_registry_thread_f, &ping_logger);
+      next_thread = ((next_thread+1) % threads);
     }
+
+    free(iterate_file_registry_thread_arg);
+    free(thread);
   }
 }
