@@ -26,8 +26,8 @@ prep-job:
   stage: prep
   script:
     - echo "Installing dependencies..."
-    - sudo apt update
-    - sudo apt install -y --no-install-recommends build-essential cmake 
+    - apt update
+    - apt install -y --no-install-recommends build-essential cmake 
     - echo "Installing dependencies complete."
 
 build-job:       # This job runs in the build stage, which runs first.
@@ -38,7 +38,7 @@ build-job:       # This job runs in the build stage, which runs first.
     - cd build
     - cmake ..
     - make
-    - sudo setcap cap_net_raw+ep build/pingo
+    - setcap cap_net_raw+ep build/pingo
     - echo "Compile complete."
   artifacts:
     paths:
