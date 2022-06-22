@@ -40,7 +40,7 @@ build-debian:
   script:
     - <<:*apt_dependencies
     - <<:*build_step
- artifacts:
+  artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
 
@@ -50,7 +50,7 @@ build-ubuntu:
   script:
     - <<:*apt_dependencies
     - <<:*build_step
- artifacts:
+  artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
 
