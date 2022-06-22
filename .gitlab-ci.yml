@@ -17,15 +17,32 @@ default:
     - x86_64
 
 stages:          # List of stages for jobs, and their order of execution
+  - prep
   - build
   - test
   - deploy
+
+prep-job:
+  stage: prep
+  script:
+    - echo "Installing dependencies..."
+    - sudo apt update
+    - sudo apt install -y --no-install-recommends build-essential cmake 
+    - echo "Installing dependencies complete."
 
 build-job:       # This job runs in the build stage, which runs first.
   stage: build
   script:
     - echo "Compiling the code..."
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make
+    - sudo setcap cap_net_raw+ep build/pingo
     - echo "Compile complete."
+  artifacts:
+    paths:
+      - build/pingo
 
 unit-test-job:   # This job runs in the test stage.
   stage: test    # It only starts when the job in the build stage completes successfully.
