@@ -43,7 +43,7 @@ build-fedora:       # This job runs in the build stage, which runs first.
   image: fedora:latest
   script:
     - echo "Installing dependencies..."
-    - dnf install -y gcc-c++ cmake libssl-devel libpng-devel libcap2-bin
+    - dnf install -y gcc-c++ cmake libopenssl-devel libpng-devel
     - echo "Installing dependencies complete."
     - echo "Compiling the code..."
     - mkdir build
