@@ -33,12 +33,11 @@ build-job:       # This job runs in the build stage, which runs first.
     - cd build
     - cmake ..
     - make
-    - ls build
-    - setcap cap_net_raw+ep build/pingo
+    - setcap cap_net_raw+ep pingo
     - echo "Compile complete."
   artifacts:
     paths:
-      - build/pingo
+      - /builds/edward/pingo/build/pingo
 
 unit-test-job:   # This job runs in the test stage.
   stage: test    # It only starts when the job in the build stage completes successfully.
