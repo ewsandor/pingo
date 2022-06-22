@@ -38,8 +38,8 @@ build-debian:
   stage: build
   image: debian:latest
   script:
-    - <<:*apt_dependencies
-    - <<:*build_step
+    <<:*apt_dependencies
+    <<:*build_step
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
@@ -48,8 +48,8 @@ build-ubuntu:
   stage: build
   image: ubuntu:latest
   script:
-    - <<:*apt_dependencies
-    - <<:*build_step
+    <<:*apt_dependencies
+    <<:*build_step
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
@@ -62,7 +62,7 @@ build-fedora:
     - echo "Installing dependencies..."
     - dnf install -y gcc-c++ cmake openssl-devel libpng-devel
     - echo "Installing dependencies complete."
-    - <<:*build_step
+    <<:*build_step
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
