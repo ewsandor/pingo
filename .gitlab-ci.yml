@@ -19,39 +19,50 @@ default:
 stages:          # List of stages for jobs, and their order of execution
   - build
 
-build-debian:       # This job runs in the build stage, which runs first.
+.apt_dependencies: &apt_dependencies
+  - echo "Installing dependencies..."
+  - apt update
+  - apt install -y --no-install-recommends g++ make cmake libssl-dev libpng-dev libcap2-bin
+  - echo "Installing dependencies complete."
+
+.build_step: &build_step
+  - echo "Compiling the code..."
+  - mkdir build
+  - cd build
+  - cmake ..
+  - make
+  - setcap cap_net_raw+ep pingo
+  - echo "Compile complete."
+
+build-debian:
   stage: build
   image: debian:latest
   script:
-    - echo "Installing dependencies..."
-    - apt update
-    - apt install -y --no-install-recommends g++ make cmake libssl-dev libpng-dev libcap2-bin
-    - echo "Installing dependencies complete."
-    - echo "Compiling the code..."
-    - mkdir build
-    - cd build
-    - cmake ..
-    - make
-    - setcap cap_net_raw+ep pingo
-    - echo "Compile complete."
-  artifacts:
+    - <<:*apt_dependencies
+    - <<:*build_step
+ artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
 
-build-fedora:       # This job runs in the build stage, which runs first.
+build-ubuntu:
+  stage: build
+  image: ubuntu:latest
+  script:
+    - <<:*apt_dependencies
+    - <<:*build_step
+ artifacts:
+    paths:
+      - /builds/edward/pingo/build/pingo
+
+
+build-fedora:
   stage: build
   image: fedora:latest
   script:
     - echo "Installing dependencies..."
     - dnf install -y gcc-c++ cmake openssl-devel libpng-devel
     - echo "Installing dependencies complete."
-    - echo "Compiling the code..."
-    - mkdir build
-    - cd build
-    - cmake ..
-    - make
-    - setcap cap_net_raw+ep pingo
-    - echo "Compile complete."
+    - <<:*build_step
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
