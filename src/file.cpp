@@ -16,11 +16,11 @@ static const file_manager_config_s default_file_manager_config =
     .stats_on_validation = true,
   };
 
-file_manager_c::file_manager_c(const char * wd)
+file_manager_c::file_manager_c(const char * working_directory_)
   : config(default_file_manager_config)
 {
-  assert(wd);
-  strncpy(working_directory, wd, sizeof(working_directory));
+  assert(working_directory_);
+  strncpy(working_directory, working_directory_, sizeof(working_directory));
   mdctx = EVP_MD_CTX_new();
 }
 
@@ -33,7 +33,7 @@ bool file_manager_c::file_header_valid(const file_s* file)
 {
   bool ret_val = true;
 
-  if(file)
+  if(file != nullptr)
   {
     ret_val = ( (FILE_SIGNATURE == file->header.signature) &&
                 (FILE_VERSION_0 == file->header.version) && 
@@ -52,9 +52,9 @@ bool file_manager_c::file_data_valid(const file_s* file)
 {
   bool ret_val = true;
 
-  if(file)
+  if(file != nullptr)
   {
-    ret_val = (file_header_valid(file) && file->data);
+    ret_val = (file_header_valid(file) && (file->data != nullptr));
   }
   else
   {
@@ -70,9 +70,9 @@ bool file_manager_c::read_file(const char * file_path, file_s* output_file, bool
   bool ret_val = true;
   FILE * fp;
 
-  if(file_path && output_file)
+  if((file_path != nullptr) && (output_file != nullptr))
   {
-    if((fp = fopen(file_path, "rb")))
+    if((fp = fopen(file_path, "rb")) != nullptr)
     {
       if(read_file_header(fp, output_file))
       {
@@ -125,7 +125,7 @@ bool file_manager_c::read_file_header(FILE * fp, file_s* output_file)
   bool ret_val = true;
   char ip_string_buffer[IP_STRING_SIZE];
 
-  if(fp && output_file)
+  if((fp != nullptr) && (output_file != nullptr))
   {
     if (0 != ftell(fp))
     {
@@ -165,7 +165,7 @@ bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
   bool ret_val = true;
   char ip_string_buffer[IP_STRING_SIZE];
 
-  if(fp && output_file)
+  if((fp != nullptr) && (output_file != nullptr))
   {
     if(file_header_valid(output_file))
     {
@@ -176,7 +176,7 @@ bool file_manager_c::read_file_data(FILE * fp, file_s* output_file)
       
       output_file->data = (file_data_entry_s*) malloc(sizeof(file_data_entry_s)*output_file->header.address_count);
 
-      if(output_file->data)
+      if(output_file->data != nullptr)
       {
         if(output_file->header.address_count !=
            fread(output_file->data, sizeof(file_data_entry_s), output_file->header.address_count, fp))
@@ -218,7 +218,7 @@ bool file_manager_c::read_file_checksum(FILE * fp, file_s* output_file)
   bool ret_val = true;
   char ip_string_buffer[IP_STRING_SIZE];
 
-  if(fp && output_file)
+  if((fp != nullptr) && (output_file != nullptr))
   {
     if(file_header_valid(output_file))
     {
@@ -258,7 +258,7 @@ bool file_manager_c::verify_checksum(const file_s* file, EVP_MD_CTX * mdctx)
   bool ret_val = true;
   file_checksum_t checksum;
 
-  if(file)
+  if(file != nullptr)
   {
     if(generate_file_checksum(file, checksum, mdctx))
     {
@@ -283,9 +283,9 @@ bool file_manager_c::delete_file_data(file_s* file)
 {
   bool ret_val = true;
 
-  if(file)
+  if(file != nullptr)
   {
-    if(file->data)
+    if(file->data != nullptr)
     {
       free(file->data);
       file->data = nullptr;
@@ -309,7 +309,7 @@ file_stats_s file_manager_c::get_stats_from_file(const file_s* file)
   memset(&stats, 0, sizeof(file_stats_s));
   stats.min_reply_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
 
-  if(file && file_data_valid(file))
+  if((file != nullptr) && file_data_valid(file))
   {
     for(i = 0; i < file->header.address_count; i++)
     {
@@ -333,7 +333,7 @@ file_stats_s file_manager_c::get_stats_from_file(const file_s* file)
     }
   }
 
-  if(stats.valid_replies)
+  if(stats.valid_replies > 0)
   {
     mean_accumulator /= stats.valid_replies;
     stats.mean_reply_time = ((mean_accumulator<PINGO_BLOCK_PING_TIME_NO_RESPONSE)?
@@ -360,7 +360,7 @@ bool file_manager_c::generate_file_checksum(const file_s *file, file_checksum_t 
   unsigned char md_value[EVP_MAX_MD_SIZE];
   unsigned int md_len;
 
-  if(file && checksum)
+  if((file != nullptr) && (checksum != nullptr))
   {
     /* Reset checksum context */
     EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
@@ -387,7 +387,7 @@ bool file_manager_c::file_path_from_directory_filename(const char * directory, c
 {
   bool ret_val = true;
 
-  if(directory && filename && path && (path_buffer_size > 0))
+  if((directory != nullptr) && (filename != nullptr) && (path != nullptr) && (path_buffer_size > 0))
   {
     if(0 >= snprintf(path, path_buffer_size, "%s/%s", directory, filename))
     {
@@ -416,7 +416,7 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
   FILE * fp;
   ping_block_entry_s ping_block_entry;
 
-  if(ping_block && (ping_block->get_address_count() > 0))
+  if((ping_block != nullptr) && (ping_block->get_address_count() > 0))
   {
     ip_string(ping_block->get_first_address(), ip_string_buffer, sizeof(ip_string_buffer), '_', true);
     snprintf(filename, sizeof(filename), "%s.pingo", ip_string_buffer);
@@ -457,7 +457,7 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
       generate_file_checksum(&file, file.checksum);
 
       block_exit(EXIT_BLOCK_WRITE_FILE_OPEN);
-      if((fp = fopen(path, "wb")))
+      if((fp = fopen(path, "wb")) != nullptr)
       {
         assert(1 == fwrite(&file.header,  sizeof(file.header), 1, fp));
         assert(file.header.address_count == 
@@ -484,7 +484,7 @@ bool file_manager_c::write_ping_block_to_file(ping_block_c* ping_block)
   else
   {
     fprintf(stderr, "Invalid ping block passed for writing to file.  pointer %p address_count %d\n", 
-      ping_block, (ping_block?ping_block->get_address_count():-1));
+      ping_block, ((ping_block != nullptr)?ping_block->get_address_count():-1));
     ret_val = false;
   }
 
@@ -497,7 +497,7 @@ void file_manager_c::sort_registry()
   registry_entry_s swap_buffer;
   unsigned int valid_entries = 0; 
 
-  if( (registry.size() > 0) &&
+  if( !registry.empty() &&
       FILE_REGISTRY_READ_AND_VALID(registry[0].state))
   {
     valid_entries++;
@@ -519,10 +519,8 @@ void file_manager_c::sort_registry()
           {
             break;
           }
-          else
-          {
-            registry[j] = registry[j-1];
-          }
+
+          registry[j] = registry[j-1];
         }
         registry[j] = swap_buffer;
       }
@@ -536,7 +534,7 @@ bool file_manager_c::add_file_to_registry(const char * file_name, const file_s* 
   bool ret_val = true;
   registry_entry_s  registry_entry;
 
-  if(file_name && file && (state < FILE_REGISTRY_ENTRY_MAX))
+  if((file_name != nullptr) && (file != nullptr) && (state < FILE_REGISTRY_ENTRY_MAX))
   {
     memset(&registry_entry, 0, sizeof(registry_entry_s));
     strncpy(registry_entry.file_name, file_name, sizeof(registry_entry.file_name));
@@ -546,7 +544,7 @@ bool file_manager_c::add_file_to_registry(const char * file_name, const file_s* 
   }
   else
   {
-    fprintf(stderr, "Bad input to add file to registry.  file_name %s file %p state %u\n", (file_name?file_name:"(null)"), file, state);
+    fprintf(stderr, "Bad input to add file to registry.  file_name %s file %p state %u\n", ((file_name != nullptr)?file_name:"(null)"), file, state);
     ret_val = false;
   }
 
@@ -564,11 +562,11 @@ bool file_manager_c::build_registry()
 
   dir = opendir(working_directory);
 
-  if(dir)
+  if(dir != nullptr)
   {
     errno = 0;
 
-    while((dp = readdir(dir)))
+    while((dp = readdir(dir)) != nullptr)
     {
       file_path_from_directory_filename(working_directory, dp->d_name, file_path, sizeof(file_path));
 
@@ -716,7 +714,7 @@ bool file_manager_c::load_file_data(registry_entry_s* registry_entry)
 {
   bool ret_val = true;
 
-  if(registry_entry)
+  if(registry_entry != nullptr)
   {
     char     file_path[FILE_PATH_MAX_LENGTH];
     file_path_from_directory_filename(working_directory, registry_entry->file_name, file_path, sizeof(file_path));
@@ -746,7 +744,7 @@ void file_manager_c::iterate_file_registry(file_iterator_cb callback, const void
 {
   const uint_fast64_t last_address = first_address+address_count;
 
-  if(callback && (last_address > first_address))
+  if((callback != nullptr) && (last_address > first_address))
   {
     sort_registry();
 

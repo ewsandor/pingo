@@ -35,7 +35,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
   bool ret_val = true;
   char o,c;
 
-  if(args)
+  if(args != nullptr)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 

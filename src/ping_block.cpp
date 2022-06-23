@@ -32,7 +32,7 @@ static const ping_block_config_s default_ping_block_config =
 
 void ping_block_c::init_config(ping_block_config_s* new_config)
 {
-  if(new_config)
+  if(new_config != nullptr)
   {
     *new_config = default_ping_block_config;
   }
@@ -70,7 +70,7 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
     entry[i].ping_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
   }
 
-  if(config.excluded_ip_list)
+  if(config.excluded_ip_list != nullptr)
   {
     for(ping_block_excluded_ip_list_t::iterator it = config.excluded_ip_list->begin(); it != config.excluded_ip_list->end(); it++)
     {
@@ -140,7 +140,7 @@ bool ping_block_c::log_ping_time(uint32_t address, reply_time_t reply_delay)
 bool ping_block_c::get_ping_block_entry(uint32_t address, ping_block_entry_s* ret_entry)
 {
   bool ret_val = true;
-  if(ret_entry)
+  if(ret_entry != nullptr)
   {
     if( (address >= get_first_address()) &&
         ((address-get_first_address()) < get_address_count()))
@@ -447,7 +447,7 @@ ping_block_stats_s ping_block_c::get_stats()
 
   unlock();
 
-  if(stats.valid_replies)
+  if(stats.valid_replies > 0)
   {
     stats.mean_reply_time /= stats.valid_replies;
   }

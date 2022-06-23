@@ -1,11 +1,11 @@
 #include <cassert>
 #include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -33,18 +33,18 @@ void sandor_laboratories::pingo::safe_exit(int status)
   exit_timeout_abs.tv_sec += 5;
 
   mutex_code = pthread_mutex_timedlock(&exit_mutex, &exit_timeout_abs);
-  if(mutex_code)
+  if(mutex_code != 0)
   {
     fprintf(stderr, "UNSAFE EXIT! Failed to lock exit mutex.  mutex_code %d %s\n", mutex_code, strerror(mutex_code));
     exit(1);
   }
   else
   {
-    while(exit_block_mask)
+    while(exit_block_mask != 0)
     {
       fprintf(((0 == status)?stdout:stderr), "Waiting for safe exit.  Exit block mask 0x%x\n", exit_block_mask);
       cond_code = pthread_cond_timedwait(&exit_cond, &exit_mutex, &exit_timeout_abs);
-      if(cond_code)
+      if(cond_code != 0)
       {
         fprintf(stderr, "UNSAFE EXIT! Failed to meet exit condition.  cond_code %d - %s\n", cond_code, strerror(cond_code));
         exit(1);
@@ -70,17 +70,11 @@ void sandor_laboratories::pingo::unblock_exit(exit_block_reason_e reason)
   assert(0 == pthread_mutex_unlock(&exit_mutex));
 }
 
-
-//const uint32_t dest_base_address = (10<<24) | (0<<16) | (0<<8) | 0;
-//const uint32_t dest_base_address = (73<<24) | (0<<16) | (0<<8) | 0;
-//const uint32_t dest_base_address = (209<<24) | (131<<16) | (0<<8) | 0;
-const uint32_t dest_base_address = 0;
-
 bool sandor_laboratories::pingo::timespec_valid(const struct timespec * test_timespec)
 {
   bool ret_val = false;
 
-  if(test_timespec)
+  if(test_timespec != nullptr)
   {
     ret_val = ( (test_timespec->tv_sec >= 0) &&  
                 (test_timespec->tv_nsec >= 0) && 
@@ -95,11 +89,11 @@ bool sandor_laboratories::pingo::diff_timespec(const struct timespec * a, const 
 {
   bool ret_val = false;
   
-  if(diff)
+  if(diff != nullptr)
   {
     memset(diff, 0, sizeof(*diff));
 
-    if(a && b)
+    if((a != nullptr) && (b != nullptr))
     {
       if( (a->tv_sec >  b->tv_sec) || 
           ((a->tv_sec == b->tv_sec) && (a->tv_nsec >= b->tv_nsec)))
@@ -131,7 +125,7 @@ bool sandor_laboratories::pingo::diff_timespec(const struct timespec * a, const 
 
 void sandor_laboratories::pingo::ip_string(uint32_t address, char* buffer, size_t buffer_size, char deliminator, bool leading_zero)
 {
-  if(buffer)
+  if(buffer != nullptr)
   {
     if('.'==deliminator)
     {
@@ -184,7 +178,7 @@ void *log_handler_thread_f(void* arg)
 {
   ping_logger_c *ping_logger = (ping_logger_c*) arg;
 
-  while(1)
+  while(true)
   {
     ping_logger->wait_for_log_entry();
     ping_logger->process_log_entry();
@@ -222,7 +216,7 @@ void *writer_thread_f(void* arg)
       .tv_nsec = 0
     };
 
-  while(1)
+  while(true)
   {
     printf("Waiting for ping block.\n");
     ping_logger->wait_for_ping_block();
@@ -301,7 +295,7 @@ void *send_thread_f(void* arg)
     MS_TO_TIMESPEC(send_thread_args->ping_block_args.cooldown, ping_block_config.ping_batch_cooldown); 
   }
 
-  while(1)
+  while(true)
   {
     ping_block = new ping_block_c(ping_block_first_address, ping_block_address_count, &ping_block_config);
     ping_block_first_address = ping_block->get_last_address();
@@ -360,7 +354,7 @@ void *recv_thread_f(void* arg)
   recv_timeout.tv_usec = 0;
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&recv_timeout, sizeof(recv_timeout));
 
-  while(1)
+  while(true)
   {
     memset(&buffer, 0, sizeof(buffer));
 
@@ -410,7 +404,7 @@ void *recv_thread_f(void* arg)
           {
             case ICMP_TYPE_ECHO_REPLY:
             {
-              if((icmp_packet_meta.payload_size == sizeof(pingo_payload_t)))
+              if(icmp_packet_meta.payload_size == sizeof(pingo_payload_t))
               {
                 pingo_payload = *((pingo_payload_t*)icmp_packet_meta.payload);
 
@@ -460,7 +454,7 @@ void *recv_thread_f(void* arg)
               if(verbose)
               {
                 printf("icmp valid %u from %s type %u code %u id %u seq_num %u payload_size %lu\n", 
-                        icmp_packet_meta.header_valid,
+                        (unsigned int)icmp_packet_meta.header_valid,
                         ip_string_buffer_a,
                         icmp_packet_meta.header.type, 
                         icmp_packet_meta.header.code, 
@@ -475,14 +469,14 @@ void *recv_thread_f(void* arg)
         {
           ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer_a, sizeof(ip_string_buffer_a));
           fprintf(stderr, "Invalid packet from %s.  ICMP header valid %u\n", 
-            ip_string_buffer_a, icmp_packet_meta.header_valid);
+            ip_string_buffer_a, (unsigned int) icmp_packet_meta.header_valid);
         }
       }
       else
       {
         ip_string(ntohl(src_addr.sin_addr.s_addr), ip_string_buffer_a, sizeof(ip_string_buffer_a));
         fprintf(stderr, "Invalid packet from %s.  IPv4 header valid %u\n", 
-          ip_string_buffer_a, ipv4_packet_meta.header_valid);
+          ip_string_buffer_a, (unsigned int) ipv4_packet_meta.header_valid);
       }
     }
   }
@@ -514,14 +508,14 @@ bool load_ping_block_exclude_list(char * path, ping_block_excluded_ip_list_t * e
 
   printf("Reading ping block IP exclude list '%s'.\n", path);
 
-  if(path && exclude_list)
+  if((path != nullptr) && (exclude_list != nullptr))
   {
     FILE * fp = fopen(path, "r");
 
-    if(fp)
+    if(fp != nullptr)
     {
       unsigned int line_number = 1;
-      while(!feof(fp))
+      while(feof(fp) == 0)
       {
         char line[1024];
         uint8_t byte_a, byte_b, byte_c, byte_d, subnet;
@@ -702,10 +696,10 @@ int main(int argc, char *argv[])
     writer_thread_args.ping_logger  = &ping_logger;
     writer_thread_args.file_manager = file_manager;
 
-    pthread_create(&log_handler_thread, NULL, log_handler_thread_f, &ping_logger);
-    pthread_create(&writer_thread,      NULL, writer_thread_f, &writer_thread_args);
-    pthread_create(&recv_thread,        NULL, recv_thread_f,   &ping_logger);
-    pthread_create(&send_thread,        NULL, send_thread_f,   &send_thread_args);
+    pthread_create(&log_handler_thread, nullptr, log_handler_thread_f, &ping_logger);
+    pthread_create(&writer_thread,      nullptr, writer_thread_f, &writer_thread_args);
+    pthread_create(&recv_thread,        nullptr, recv_thread_f,   &ping_logger);
+    pthread_create(&send_thread,        nullptr, send_thread_f,   &send_thread_args);
 
     while('q' != getchar()) {}
   }

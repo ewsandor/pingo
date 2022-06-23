@@ -70,7 +70,7 @@ png_bytep row_pointers[65536] = {0};
 
 void sandor_laboratories::pingo::init_png_config(png_config_s* png_config)
 {
-  if(png_config)
+  if(png_config != nullptr)
   {
     memset(png_config, 0, sizeof(png_config_s));
     png_config->color_depth = 1;
@@ -79,7 +79,7 @@ void sandor_laboratories::pingo::init_png_config(png_config_s* png_config)
 
 void cleanup_png_data()
 {
-  if(fp)
+  if(fp != nullptr)
   {
     printf("Closing file.\n");
     fclose(fp);
@@ -90,7 +90,7 @@ void cleanup_png_data()
   printf("Freeing image memory.\n");
   for(unsigned int i = 0; i < max_coordinate; i++)
   {
-    if(row_pointers[i])
+    if(row_pointers[i] != nullptr)
     {
       free(row_pointers[i]);
     }
@@ -98,8 +98,10 @@ void cleanup_png_data()
   max_coordinate = 0;
 }
 
-void png_error_handler(png_structp, png_const_charp error_string)
+void png_error_handler(png_structp png_struct_ptr, png_const_charp error_string)
 {
+  UNUSED(png_struct_ptr);
+
   fprintf(stderr, "libpng error - %s.\n", error_string);
   cleanup_png_data();
   safe_exit(1);
@@ -120,7 +122,7 @@ void png_write_row_cb(png_structp png_ptr, png_uint_32 row, int pass)
 
 void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_config)
 {
-  if(png_config && png_config->file_manager)
+  if((png_config != nullptr) && (png_config->file_manager != nullptr))
   {
     if(PINGO_ARGUMENT_VALID == png_config->image_args.hilbert_image_order_status &&
       png_config->image_args.hilbert_image_order >   0 &&
@@ -149,16 +151,16 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
       printf("Opening file %s for writing.\n", png_config->image_file_path);
       assert(nullptr == fp);
       fp = fopen(png_config->image_file_path, "wb");
-      if(fp)
+      if(fp != nullptr)
       {
         assert(nullptr == png_ptr);
         png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, png_error_handler, nullptr);
-        if(png_ptr)
+        if(png_ptr != nullptr)
         {
           assert(nullptr == png_info_ptr);
           png_info_ptr = png_create_info_struct(png_ptr);
 
-          if(png_info_ptr)
+          if(png_info_ptr != nullptr)
           {
             printf("Initializing PNG file.\n");
             png_init_io(png_ptr, fp);
@@ -356,7 +358,7 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
   else
   {
     fprintf(stderr, "Null input to generate image.  png_config %p file_manager %p\n", 
-      png_config, (png_config?png_config->file_manager:0));
+      png_config, ((png_config != nullptr)?png_config->file_manager:0));
     cleanup_png_data();
     safe_exit(1);
   }

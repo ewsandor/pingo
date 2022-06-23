@@ -21,10 +21,8 @@ hilbert_index_t hilbert_curve_c::max_index(hilbert_order_t order)
   {
     return max_index_lut[order];
   }
-  else
-  {
-    return (max_index_lut[(MAX_INDEX_LUT_MAX-1)] << (2*(1+(order - MAX_INDEX_LUT_MAX))));
-  }
+
+  return (max_index_lut[(MAX_INDEX_LUT_MAX-1)] << (2*(1+(order - MAX_INDEX_LUT_MAX))));
 }
 
 hilbert_coordinate_t hilbert_curve_c::max_coordinate(hilbert_order_t order)
@@ -33,10 +31,8 @@ hilbert_coordinate_t hilbert_curve_c::max_coordinate(hilbert_order_t order)
   {
     return max_coordinate_lut[order];
   }
-  else
-  {
-    return (max_coordinate_lut[(MAX_COORDINATE_LUT_MAX-1)] << (1+(order - MAX_COORDINATE_LUT_MAX)));
-  }
+
+  return (max_coordinate_lut[(MAX_COORDINATE_LUT_MAX-1)] << (1+(order - MAX_COORDINATE_LUT_MAX)));
 }
 
 inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordinate_t max_coordinate, const hilbert_orientation_e orientation, 
@@ -44,7 +40,7 @@ inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordin
 {
   bool ret_val = true;
 
-  if(coordinate_out)
+  if(coordinate_out != nullptr)
   {
     if( (coordinate_in.x < max_coordinate) &&
         (coordinate_in.y < max_coordinate) )
@@ -120,7 +116,7 @@ bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t inde
 {
   bool ret_val = true;
 
-  if(coordinate)
+  if(coordinate != nullptr)
   {
     const hilbert_index_t      max_index_value      = max_index(order);
     const hilbert_coordinate_t max_coordinate_value = max_coordinate(order);

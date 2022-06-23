@@ -7,11 +7,18 @@ project(Pingo
 
 set(PROJECT_VERSION 0.2.2-dev)
 
+find_program (CLANG_TIDY clang-tidy)
+if(CLANG_TIDY)
+message("-- Found clang-tidy.  Enabling linter warnings as errors.")
+        set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=bugprone-*,concurrency-*,performance-*,readability-* -warnings-as-errors=*)
+else()
+        message(WARNING "-- clang-tidy not found!  Recommended linter warning-as-errors not enabled.")
+endif()
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(PNG REQUIRED)
-
 
 add_compile_options(-Wall -Wextra -Werror)
 

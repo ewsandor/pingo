@@ -11,12 +11,12 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
   uint_fast32_t computed_checksum = 0;
   ipv4_word_t   host_word;
 
-  if(output_header)
+  if(output_header != nullptr)
   {
     memset(output_header, 0, sizeof(ipv4_header_s));
   }
   
-  if(buffer && output_header && (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size) >= 5))
+  if((buffer != nullptr) && (output_header != nullptr) && (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size) >= 5))
   {
     host_word = ntohl(buffer[0]);
     computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
@@ -93,7 +93,7 @@ ipv4_packet_meta_s parse_ipv4_packet(const ipv4_word_t * buffer, const size_t bu
   ipv4_packet_meta_s packet_meta;
   memset(&packet_meta, 0, sizeof(ipv4_packet_meta_s));
 
-  if(buffer)
+  if(buffer != nullptr)
   {
     packet_meta.buffer      = buffer;
     packet_meta.buffer_size = buffer_size;
@@ -115,14 +115,12 @@ ipv4_word_size_t get_ipv4_header_size(const ipv4_header_s* ipv4_header)
 {
   ipv4_word_size_t ret_val = 0;
 
-  if(ipv4_header)
+  if(ipv4_header != nullptr)
   {
     return ipv4_header->ihl;
   }
-  else
-  {
-    fprintf(stderr, "Invalid ipv4_header");
-  }
+  
+  fprintf(stderr, "Invalid ipv4_header");
 
   return ret_val;
 }
@@ -134,7 +132,7 @@ size_t encode_ipv4_packet(const ipv4_packet_meta_s* packet_meta, ipv4_word_t * b
   uint_fast32_t computed_checksum = 0;
   ipv4_word_t   host_word;
 
-  if( packet_meta && buffer)
+  if((packet_meta != nullptr) && (buffer != nullptr))
   {
     output_size = (packet_meta->header.total_length);
 
@@ -187,7 +185,7 @@ size_t encode_ipv4_packet(const ipv4_packet_meta_s* packet_meta, ipv4_word_t * b
     else
     {
       fprintf(stderr, "IPv4 header invalid or output buffer too small.  header_valid %u buffer_size %lu ihl %u total_length %u\n",
-              packet_meta->header_valid, buffer_size, packet_meta->header.ihl, packet_meta->header.total_length);
+              (unsigned int) packet_meta->header_valid, buffer_size, packet_meta->header.ihl, packet_meta->header.total_length);
 
       output_size = 0;
     }

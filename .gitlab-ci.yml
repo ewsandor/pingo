@@ -22,7 +22,7 @@ stages:          # List of stages for jobs, and their order of execution
 .apt_dependencies: &apt_dependencies
   - echo "Installing dependencies..."
   - apt update
-  - apt install -y --no-install-recommends g++ make cmake libssl-dev libpng-dev libcap2-bin
+  - apt install -y --no-install-recommends g++ make cmake libssl-dev libpng-dev libcap2-bin clang-tidy
   - echo "Installing dependencies complete."
 
 .build_step: &build_step
@@ -30,7 +30,7 @@ stages:          # List of stages for jobs, and their order of execution
   - mkdir build
   - cd build
   - cmake ..
-  - make
+  - make -j$(nproc)
   - setcap cap_net_raw+ep pingo
   - echo "Compile complete."
 

@@ -154,7 +154,7 @@ void ping_logger_c::process_echo_reply_log_entry(ping_log_entry_s *log_entry)
   ping_block_queue_t::iterator it;
   uint_fast32_t reply_delay = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
 
-  if( (log_entry) && 
+  if( (log_entry != nullptr) && 
       (PING_LOG_ENTRY_ECHO_REPLY==log_entry->header.type) && 
       (timespec_valid(&log_entry->data.echo_reply.reply_delay)))
   {

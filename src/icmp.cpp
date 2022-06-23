@@ -12,7 +12,7 @@ inline bool parse_icmp_header(const ipv4_payload_s* ipv4_payload, icmp_header_s 
   size_t           tmp_size;
   ipv4_word_size_t tmp_size_in_words;
 
-  if(ipv4_payload && output_header)
+  if((ipv4_payload != nullptr) && (output_header != nullptr))
   {
     if((ipv4_payload->size >= 8) && 
        (ipv4_payload->size_in_words >= 2))
@@ -65,7 +65,7 @@ inline bool parse_icmp_header(const ipv4_payload_s* ipv4_payload, icmp_header_s 
         tmp_size -= sizeof(ipv4_word_t);
         tmp_size_in_words++;
       }
-      if(tmp_size && (tmp_size_in_words < ipv4_payload->size_in_words))
+      if((tmp_size > 0) && (tmp_size_in_words < ipv4_payload->size_in_words))
       {
         host_word = ntohl(ipv4_payload->buffer[tmp_size_in_words]);
         if(tmp_size >= 2)
@@ -119,7 +119,7 @@ icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s* ipv4_payload)
   icmp_packet_meta_s icmp_packet_meta;
   memset(&icmp_packet_meta, 0, sizeof(icmp_packet_meta_s));
 
-  if(ipv4_payload)
+  if(ipv4_payload != nullptr)
   {
     icmp_packet_meta.header_valid = parse_icmp_header(ipv4_payload, &icmp_packet_meta.header);
     if(icmp_packet_meta.header_valid)
@@ -146,7 +146,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
   uint16_t     *checksum_buffer;
   unsigned int  checksum_iterator;
 
-  if(icmp_packet_meta && buffer)
+  if((icmp_packet_meta != nullptr) && (buffer != nullptr))
   {
     output_size = (sizeof(icmp_header_s) + icmp_packet_meta->payload_size);
 
@@ -197,10 +197,9 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
           break;
         }
       }
-      if(icmp_packet_meta->payload_size)
+      if(icmp_packet_meta->payload_size > 0)
       {
         memcpy(write_ptr, icmp_packet_meta->payload, icmp_packet_meta->payload_size);
-        write_ptr+=sizeof(icmp_packet_meta->payload_size);
       }
 
       /* Compute checksum */
@@ -217,7 +216,6 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
       {
         computed_checksum += (ntohs(checksum_buffer[checksum_iterator]) & 0xFF00);
         checksum_iterator++;
-        tmp_size -= sizeof(uint8_t);
       }
       computed_checksum = ~((computed_checksum & 0xFFFF) + (computed_checksum>>16));
       *checksum_ptr = htons(computed_checksum);
@@ -225,7 +223,7 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
     else
     {
       fprintf(stderr, "ICMP header invalid or output buffer too small.  header_valid %u output_size %lu buffer_size %lu\n",
-              icmp_packet_meta->header_valid, output_size, buffer_size);
+              (unsigned int)icmp_packet_meta->header_valid, output_size, buffer_size);
       output_size = 0;
     }
   }

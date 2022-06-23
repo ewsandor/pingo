@@ -172,7 +172,7 @@ namespace sandor_laboratories
         bool load_file_data      (registry_entry_s*);
 
       public:
-        file_manager_c(const char * working_directory);
+        file_manager_c(const char * working_directory_);
         ~file_manager_c();
 
         bool build_registry();
