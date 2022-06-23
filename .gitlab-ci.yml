@@ -37,6 +37,20 @@ stages:          # List of stages for jobs, and their order of execution
 build-debian:
   stage: build
   image: debian:latest
+  tags:
+    - x86_64
+  script:
+    - *apt_dependencies
+    - *build_step
+  artifacts:
+    paths:
+      - /builds/edward/pingo/build/pingo
+
+build-debian-arm64:
+  stage: build
+  image: debian:latest
+  tags:
+    - arm64
   script:
     - *apt_dependencies
     - *build_step
