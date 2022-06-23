@@ -13,6 +13,7 @@
 
 using namespace sandor_laboratories::pingo;
 
+// NOLINTBEGIN(readability-magic-numbers)
 static const ping_block_config_s default_ping_block_config = 
   {
     .verbose         = true,
@@ -20,7 +21,7 @@ static const ping_block_config_s default_ping_block_config =
     .ping_batch_cooldown = 
       {
         .tv_sec  = 0,
-        .tv_nsec = MS_TO_NANOSEC(50),
+        .tv_nsec = (time_t)MS_TO_NANOSEC(50),
       },
     .socket_ttl      = 255,
     .identifier      = ICMP_IDENTIFIER,
@@ -29,6 +30,7 @@ static const ping_block_config_s default_ping_block_config =
     .send_attempts   = 5,
     .excluded_ip_list = nullptr,
   };
+// NOLINTEND(readability-magic-numbers)
 
 void ping_block_c::init_config(ping_block_config_s* new_config)
 {
@@ -47,12 +49,10 @@ inline void ping_block_c::unlock()
   assert(0 == pthread_mutex_unlock(&mutex));
 }
 
-
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, const ping_block_config_s *init_config)
   : first_address(first_address), address_count(address_count), config(*init_config)
 {
-  unsigned int i;
-
   assert(0 == pthread_mutex_init(&mutex, NULL));
 
   lock();
@@ -65,7 +65,7 @@ ping_block_c::ping_block_c(uint32_t first_address, unsigned int address_count, c
 
   entry = (ping_block_entry_s*) calloc(address_count, sizeof(ping_block_entry_s));
 
-  for(i = 0; i < address_count; i++)
+  for(unsigned int i = 0; i < address_count; i++)
   {
     entry[i].ping_time = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
   }
@@ -110,7 +110,7 @@ ping_block_c::~ping_block_c()
   assert(0 == pthread_mutex_destroy(&mutex));
 }
 
-
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 bool ping_block_c::log_ping_time(uint32_t address, reply_time_t reply_delay)
 {
   bool ret_val = false;
@@ -168,7 +168,8 @@ bool ping_block_c::dispatch()
   bool ret_val = false;
 
   int                 sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-  unsigned int        i, batch_index = 0, packet_id = 0;
+  unsigned int        batch_index = 0;
+  unsigned int        packet_id = 0;
   icmp_packet_meta_s  icmp_packet_meta;
   pingo_payload_t     pingo_payload;
   uint32_t            dest_address = get_first_address();
@@ -206,7 +207,7 @@ bool ping_block_c::dispatch()
         case EPERM:
         {
           fprintf(stderr, "No permission to open socket for ping block dispatch.\n");
-          safe_exit(126);
+          safe_exit(EXIT_STATUS_NO_PERMISSION);
           break;
         }
         default:
@@ -230,7 +231,7 @@ bool ping_block_c::dispatch()
                 batch_index, config.ping_batch_size, ip_string_buffer);
         }
 
-        for(i = 0; i < config.ping_batch_size; i++)
+        for(unsigned int i = 0; i < config.ping_batch_size; i++)
         {
           if(!exclude_ip_address(dest_address))
           {
@@ -242,10 +243,10 @@ bool ping_block_c::dispatch()
             pingo_payload.dest_address = dest_address;
             get_time(&pingo_payload.request_time);
 
-            ssize_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
+            size_t icmp_packet_size = encode_icmp_packet(&icmp_packet_meta, (icmp_buffer_t*) buffer, sizeof(buffer));
 
             while((remaining_attempts > 0) &&
-                  (icmp_packet_size != sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr))))
+                  (icmp_packet_size != (size_t)sendto(sockfd, buffer, icmp_packet_size, 0, (sockaddr*)&send_sockaddr, sizeof(send_sockaddr))))
             {
               ip_string(dest_address, ip_string_buffer, sizeof(ip_string_buffer));
               fprintf(stderr, "Failed to send ping for IP %s to socket.  errno %u: %s\n", ip_string_buffer, errno, strerror(errno));
@@ -384,12 +385,14 @@ struct timespec ping_block_c::get_dispatch_done_time()
 
 struct timespec ping_block_c::time_since_dispatch()
 {
-  struct timespec dispatch_done_time_copy, time_now, ret_val;
+  struct timespec ret_val;
 
   memset(&ret_val, 0, sizeof(ret_val));
 
   if(is_fully_dispatched())
   {
+    struct timespec dispatch_done_time_copy;
+    struct timespec time_now;
     dispatch_done_time_copy = get_dispatch_done_time();
     get_time(&time_now);
     diff_timespec(&time_now, &dispatch_done_time_copy, &ret_val);
@@ -413,7 +416,6 @@ void ping_block_c::wait_dispatch_done()
 ping_block_stats_s ping_block_c::get_stats()
 {
   ping_block_stats_s stats;
-  unsigned int i;
 
   memset(&stats, 0, sizeof(stats));
   stats.min_reply_time  = PINGO_BLOCK_PING_TIME_NO_RESPONSE;
@@ -422,7 +424,7 @@ ping_block_stats_s ping_block_c::get_stats()
 
   lock();
 
-  for(i = 0; i < get_address_count(); i++)
+  for(unsigned int i = 0; i < get_address_count(); i++)
   {
     if(entry[i].reply_valid)
     {
@@ -459,13 +461,13 @@ ping_block_stats_s ping_block_c::get_stats()
   return stats;
 }
 
-inline bool ping_block_c::exclude_ip_address(const uint32_t ip)
+inline bool ping_block_c::exclude_ip_address(const uint32_t check_ip)
 {
   bool ret_val = false;
 
   for(ping_block_excluded_ip_list_t::iterator it = excluded_ip_list.begin(); it != excluded_ip_list.end(); it++)
   {
-    if((ip & it->subnet_mask) == it->ip)
+    if((check_ip & it->subnet_mask) == it->ip)
     {
       ret_val = true;
       break;

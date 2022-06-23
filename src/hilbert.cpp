@@ -106,11 +106,90 @@ inline bool hilbert_curve_c::orientate_hilbert_coordinate( const hilbert_coordin
   return ret_val;
 }
 
-extern const hilbert_coordinate_s hilbert_coordinate_order_1[4];
-extern const hilbert_coordinate_s hilbert_coordinate_order_2[16];
-extern const hilbert_coordinate_s hilbert_coordinate_order_3[64];
-extern const hilbert_coordinate_s hilbert_coordinate_order_4[256];
-extern const hilbert_coordinate_s hilbert_coordinate_order_8[65536];
+inline void hilbert_curve_c::get_coordinate_next_order(hilbert_order_t order, hilbert_index_t index, hilbert_coordinate_s *coordinate)
+{
+  const hilbert_coordinate_t max_coordinate_value = max_coordinate(order);
+  const hilbert_index_t      next_order_max_index = max_index(order-1);
+
+  assert(coordinate != nullptr);
+  assert(get_coordinate((order-1), (index % next_order_max_index), coordinate));
+
+  switch(index / next_order_max_index)
+  {
+    case 0:
+    {
+      assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_D, *coordinate, coordinate));
+      //coordinate->x += 0;
+      //coordinate->y += 0;
+      break;
+    }
+    case 1:
+    {
+      assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_A, *coordinate, coordinate));
+      //coordinate->x += 0;
+      coordinate->y += max_coordinate_value/2;
+      break;
+    }
+    case 2:
+    {
+      assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_A, *coordinate, coordinate));
+      coordinate->x += max_coordinate_value/2;
+      coordinate->y += max_coordinate_value/2;
+      break;
+    }
+    case 3:
+    {
+      assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_B, *coordinate, coordinate));
+      coordinate->x += max_coordinate_value/2;
+      //coordinate->y += 0;
+      break;
+    }
+    default:
+    {
+      /* Unexpected */
+      fprintf(stderr, "Order %u index %lu next_order_max_index %lu\n", order, index, next_order_max_index);
+      assert(0);
+      break;
+    }
+  }
+}
+
+inline bool hilbert_curve_c::get_coordinate_from_lut(hilbert_order_t order, const hilbert_index_t index, hilbert_coordinate_s *coordinate)
+{
+  bool ret_val = true;
+
+  if(HILBERT_COORDINATE_ORDER_1 == order)
+  {
+    assert(index < HILBERT_COORDINATE_ORDER_1_MAX_INDEX);
+    *coordinate = hilbert_coordinate_order_1[index];
+  }
+  else if(HILBERT_COORDINATE_ORDER_2 == order)
+  {
+    assert(index < HILBERT_COORDINATE_ORDER_2_MAX_INDEX);
+    *coordinate = hilbert_coordinate_order_2[index];
+  }
+  else if(HILBERT_COORDINATE_ORDER_3 == order)
+  {
+    assert(index < HILBERT_COORDINATE_ORDER_3_MAX_INDEX);
+    *coordinate = hilbert_coordinate_order_3[index];
+  }
+  else if(HILBERT_COORDINATE_ORDER_4 == order)
+  {
+    assert(index < HILBERT_COORDINATE_ORDER_4_MAX_INDEX);
+    *coordinate = hilbert_coordinate_order_4[index];
+  }
+  else if(HILBERT_COORDINATE_ORDER_8 == order)
+  {
+    assert(index < HILBERT_COORDINATE_ORDER_8_MAX_INDEX);
+    *coordinate = hilbert_coordinate_order_8[index];
+  }
+  else
+  {
+    ret_val = false;
+  }
+
+  return ret_val;
+}
 
 bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t index, hilbert_coordinate_s *coordinate)
 {
@@ -122,79 +201,18 @@ bool hilbert_curve_c::get_coordinate(hilbert_order_t order, hilbert_index_t inde
     const hilbert_coordinate_t max_coordinate_value = max_coordinate(order);
     if(index < max_index_value)
     {
-      if(1 == order)
+      if(!get_coordinate_from_lut(order, index, coordinate))
       {
-        assert(index < 4);
-        *coordinate = hilbert_coordinate_order_1[index];
-      }
-      else if(2 == order)
-      {
-        assert(index < 16);
-        *coordinate = hilbert_coordinate_order_2[index];
-      }
-      else if(3 == order)
-      {
-        assert(index < 64);
-        *coordinate = hilbert_coordinate_order_3[index];
-      }
-      else if(4 == order)
-      {
-        assert(index < 256);
-        *coordinate = hilbert_coordinate_order_4[index];
-      }
-      else if(8 == order)
-      {
-        assert(index < 65536);
-        *coordinate = hilbert_coordinate_order_8[index];
-      }
-      else if (order > 0)
-      {
-        const hilbert_index_t next_order_max_index = max_index(order-1);
-        assert(get_coordinate((order-1), (index % next_order_max_index), coordinate));
-        switch(index / next_order_max_index)
+        if (order > 0)
         {
-          case 0:
-          {
-            assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_D, *coordinate, coordinate));
-            //coordinate->x += 0;
-            //coordinate->y += 0;
-            break;
-          }
-          case 1:
-          {
-            assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_A, *coordinate, coordinate));
-            //coordinate->x += 0;
-            coordinate->y += max_coordinate_value/2;
-            break;
-          }
-          case 2:
-          {
-            assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_A, *coordinate, coordinate));
-            coordinate->x += max_coordinate_value/2;
-            coordinate->y += max_coordinate_value/2;
-            break;
-          }
-          case 3:
-          {
-            assert(orientate_hilbert_coordinate(max_coordinate_value/2, HILBERT_ORIENTATION_B, *coordinate, coordinate));
-            coordinate->x += max_coordinate_value/2;
-            //coordinate->y += 0;
-            break;
-          }
-          default:
-          {
-            /* Unexpected */
-            fprintf(stderr, "Order %u index %lu next_order_max_index %lu\n", order, index, next_order_max_index);
-            assert(0);
-            break;
-          }
+          get_coordinate_next_order(order, index, coordinate);
         }
-      }
-      else
-      {
-        fprintf(stderr, "Order 0 Hilbert Curve is not supported.\n");
-        *coordinate = {.x = max_coordinate_value, .y = max_coordinate_value};
-        ret_val = false;
+        else
+        {
+          fprintf(stderr, "Order 0 Hilbert Curve is not supported.\n");
+          *coordinate = {.x = max_coordinate_value, .y = max_coordinate_value};
+          ret_val = false;
+        }
       }
     }
     else

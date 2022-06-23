@@ -7,6 +7,9 @@
 #include "file.hpp"
 #include "pingo.hpp"
 
+#define MAX_IMAGE_DIMENSION_SIZE 65536
+#define COLOR_8_BIT_MAX 0xFF
+
 namespace sandor_laboratories
 {
   namespace pingo

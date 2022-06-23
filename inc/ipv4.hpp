@@ -4,8 +4,14 @@
 #include <cstddef>
 #include <cstdint>
 
+#define IPV4_WORD_BITS_24         24
+#define IPV4_HALF_WORD_BITS       16
+#define IPV4_HALF_WORD_MASK   0xFFFF
+#define IPV4_HALF_WORD_MASK_H 0xFF00
+#define IPV4_HALF_WORD_MASK_L 0x00FF
 typedef uint32_t     ipv4_word_t;
 typedef unsigned int ipv4_word_size_t;
+#define IPV4_HALF_WORD_SIZE_BYTES (sizeof(ipv4_word_t)/2)
 
 #define IPV4_MAX_PACKET_SIZE_BYTES 65535
 #define IPV4_MAX_PACKET_SIZE_WORDS ((IPV4_MAX_PACKET_SIZE_BYTES/sizeof(ipv4_word_size_t))+1)
@@ -13,6 +19,8 @@ typedef unsigned int ipv4_word_size_t;
 #define IPV4_FLAG_DF 0x2
 #define IPV4_FLAG_MF 0x4
 
+#define IPV4_VERSION 4
+#define IPV4_HEADER_FIXED_SIZE_WORDS 5
 typedef struct __attribute__((packed))
 {
   uint8_t  version:4;

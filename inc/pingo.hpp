@@ -16,6 +16,21 @@ namespace sandor_laboratories
     #define MAX(a,b) ((a>b)?a:b)
     #define MIN(a,b) ((a<b)?a:b)
 
+    #define PERCENT_100 100
+
+    #define BITS_8   8
+    #define BITS_4   4
+    #define BITS_2   2
+    #define BITS_1   1
+
+    #define MAX_IP 0xFFFFFFFF
+    #define IP_BYTE_A_OFFSET 24
+    #define IP_BYTE_B_OFFSET 16
+    #define IP_BYTE_C_OFFSET  8
+    #define IP_BYTE_D_OFFSET  0
+
+    #define HILBERT_ORDER_FOR_32_BITS 16
+
     /* Maximum path length */
     #define FILE_NAME_MAX_LENGTH NAME_MAX
     #define FILE_PATH_MAX_LENGTH PATH_MAX
@@ -50,6 +65,7 @@ namespace sandor_laboratories
     void ip_string(uint32_t address, char* buffer, size_t buffer_size, char deliminator='.', bool leading_zero=false);
 
     /* Exit Utils */
+    #define EXIT_STATUS_NO_PERMISSION 126
     typedef enum
     {
       EXIT_BLOCK_WRITE_FILE_OPEN,

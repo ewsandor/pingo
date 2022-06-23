@@ -1,101 +1,122 @@
 #include <arpa/inet.h>
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 
 #include "icmp.hpp"
+
+inline void fill_icmp_rest_of_header(const ipv4_word_t host_word, icmp_header_s * output_header)
+{
+  assert(output_header != nullptr);
+
+  switch(output_header->type)
+  {
+    case ICMP_TYPE_ECHO_REQUEST:
+    case ICMP_TYPE_ECHO_REPLY:
+    case ICMP_TYPE_TIMESTAMP_REQUEST:
+    case ICMP_TYPE_TIMESTAMP_REPLY:
+    case ICMP_TYPE_ADDRESS_MASK_REQUEST:
+    case ICMP_TYPE_ADDRESS_MASK_REPLY:
+    {
+      output_header->rest_of_header.id_seq_num.identifier      = (host_word >> IPV4_HALF_WORD_BITS);
+      output_header->rest_of_header.id_seq_num.sequence_number = host_word;
+      break;
+    }
+    case ICMP_TYPE_REDIRECT_MESSAGE:
+    {
+      output_header->rest_of_header.redirect = host_word;
+      break;
+    }
+    case ICMP_TYPE_DESTINATION_UNREACHABLE:
+    {
+      output_header->rest_of_header.dest_unreachable.unused       = (host_word >> IPV4_HALF_WORD_BITS);
+      output_header->rest_of_header.dest_unreachable.next_hop_mtu = host_word;
+      break;
+    }
+    default:
+    {
+      output_header->rest_of_header.unused = host_word;
+      break;
+    }
+  }
+}
+
+inline bool compute_parsed_icmp_checksum(const ipv4_payload_s* ipv4_payload, icmp_header_s * output_header, const uint_fast32_t header_checksum)
+{
+  bool             ret_val = true;
+  size_t           tmp_size;
+  ipv4_word_size_t tmp_size_in_words;
+  uint_fast32_t    computed_checksum = header_checksum;
+
+  assert(ipv4_payload != nullptr);
+  assert(output_header != nullptr);
+
+  tmp_size = (ipv4_payload->size-ICMP_HEADER_SIZE_BYTES);
+  tmp_size_in_words = 2;
+  while((tmp_size >= sizeof(ipv4_word_t)) &&
+        (tmp_size_in_words < ipv4_payload->size_in_words))
+  {
+    ipv4_word_t host_word = ntohl(ipv4_payload->buffer[tmp_size_in_words]);
+    computed_checksum += (host_word & IPV4_HALF_WORD_MASK) + (host_word>>IPV4_HALF_WORD_BITS);
+    tmp_size -= sizeof(ipv4_word_t);
+    tmp_size_in_words++;
+  }
+  if((tmp_size > 0) && (tmp_size_in_words < ipv4_payload->size_in_words))
+  {
+    ipv4_word_t host_word = ntohl(ipv4_payload->buffer[tmp_size_in_words]);
+    if(tmp_size >= 2)
+    {
+      computed_checksum += (host_word>>IPV4_HALF_WORD_BITS);
+      tmp_size -= 2;
+      if(tmp_size == 1)
+      {
+        computed_checksum += (host_word & IPV4_HALF_WORD_MASK_H);
+        tmp_size -= 1;
+      }
+    }
+    else if(tmp_size == 1)
+    {
+      computed_checksum += ((host_word>>IPV4_HALF_WORD_BITS) & IPV4_HALF_WORD_MASK_H);
+      tmp_size -= 1;
+    }
+  }
+  if(tmp_size != 0)
+  {
+    fprintf(stderr, "Failed to compute checksum for payload. tmp_size %lu payload_size %lu buffer_size_in_words %u\n", 
+            tmp_size, ipv4_payload->size, ipv4_payload->size_in_words);
+    ret_val = false; 
+  }
+  computed_checksum = (computed_checksum & IPV4_HALF_WORD_MASK) + (computed_checksum>>IPV4_HALF_WORD_BITS);
+  if(IPV4_HALF_WORD_MASK != computed_checksum)
+  {
+    fprintf(stderr, "ICMP checksum failed. computed_checksum 0x%lx\n", computed_checksum);
+    ret_val = false;
+  }
+
+  return ret_val;
+}
 
 inline bool parse_icmp_header(const ipv4_payload_s* ipv4_payload, icmp_header_s * output_header)
 {
   bool             ret_val = true;
   uint_fast32_t    computed_checksum = 0;
   ipv4_word_t      host_word;
-  size_t           tmp_size;
-  ipv4_word_size_t tmp_size_in_words;
 
   if((ipv4_payload != nullptr) && (output_header != nullptr))
   {
-    if((ipv4_payload->size >= 8) && 
-       (ipv4_payload->size_in_words >= 2))
+    if((ipv4_payload->size >= ICMP_HEADER_SIZE_BYTES) && 
+       (ipv4_payload->size_in_words >= ICMP_HEADER_SIZE_IPV4_WORDS))
     {
       host_word = ntohl(ipv4_payload->buffer[0]);
-      computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
-      output_header->type     = (icmp_type_e)(host_word >> 24);
-      output_header->code     = (icmp_code_e)(host_word >> 16);
+      computed_checksum += (host_word & IPV4_HALF_WORD_MASK) + (host_word>>IPV4_HALF_WORD_BITS);
+      output_header->type     = (icmp_type_e)(host_word >> IPV4_WORD_BITS_24);
+      output_header->code     = (icmp_code_e)(host_word >> IPV4_HALF_WORD_BITS);
       output_header->checksum = host_word;
       host_word = ntohl(ipv4_payload->buffer[1]);
-      computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
-      switch(output_header->type)
-      {
-        case ICMP_TYPE_ECHO_REQUEST:
-        case ICMP_TYPE_ECHO_REPLY:
-        case ICMP_TYPE_TIMESTAMP_REQUEST:
-        case ICMP_TYPE_TIMESTAMP_REPLY:
-        case ICMP_TYPE_ADDRESS_MASK_REQUEST:
-        case ICMP_TYPE_ADDRESS_MASK_REPLY:
-        {
-          output_header->rest_of_header.id_seq_num.identifier      = (host_word >> 16);
-          output_header->rest_of_header.id_seq_num.sequence_number = host_word;
-          break;
-        }
-        case ICMP_TYPE_REDIRECT_MESSAGE:
-        {
-          output_header->rest_of_header.redirect = host_word;
-          break;
-        }
-        case ICMP_TYPE_DESTINATION_UNREACHABLE:
-        {
-          output_header->rest_of_header.dest_unreachable.unused       = (host_word >> 16);
-          output_header->rest_of_header.dest_unreachable.next_hop_mtu = host_word;
-          break;
-        }
-         default:
-        {
-          output_header->rest_of_header.unused = host_word;
-          break;
-        }
-      }
+      computed_checksum += (host_word & IPV4_HALF_WORD_MASK) + (host_word>>IPV4_HALF_WORD_BITS);
+      fill_icmp_rest_of_header(host_word, output_header);
 
-      tmp_size = (ipv4_payload->size-8);
-      tmp_size_in_words = 2;
-      while((tmp_size >= sizeof(ipv4_word_t)) &&
-            (tmp_size_in_words < ipv4_payload->size_in_words))
-      {
-        host_word = ntohl(ipv4_payload->buffer[tmp_size_in_words]);
-        computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
-        tmp_size -= sizeof(ipv4_word_t);
-        tmp_size_in_words++;
-      }
-      if((tmp_size > 0) && (tmp_size_in_words < ipv4_payload->size_in_words))
-      {
-        host_word = ntohl(ipv4_payload->buffer[tmp_size_in_words]);
-        if(tmp_size >= 2)
-        {
-          computed_checksum += (host_word>>16);
-          tmp_size -= 2;
-          if(tmp_size == 1)
-          {
-            computed_checksum += (host_word & 0xFF00);
-            tmp_size -= 1;
-          }
-        }
-        else if(tmp_size == 1)
-        {
-          computed_checksum += ((host_word>>16) & 0xFF00);
-          tmp_size -= 1;
-        }
-      }
-      if(tmp_size != 0)
-      {
-        fprintf(stderr, "Failed to compute checksum for payload. tmp_size %lu payload_size %lu buffer_size_in_words %u\n", 
-                tmp_size, ipv4_payload->size, ipv4_payload->size_in_words);
-        ret_val = false; 
-      }
-      computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
-      if(0xFFFF != computed_checksum)
-      {
-        fprintf(stderr, "ICMP checksum failed. computed_checksum 0x%lx\n", computed_checksum);
-        ret_val = false;
-      }
+      ret_val = compute_parsed_icmp_checksum(ipv4_payload, output_header, computed_checksum);
     }
     else
     {
@@ -124,8 +145,8 @@ icmp_packet_meta_s parse_icmp_packet(const ipv4_payload_s* ipv4_payload)
     icmp_packet_meta.header_valid = parse_icmp_header(ipv4_payload, &icmp_packet_meta.header);
     if(icmp_packet_meta.header_valid)
     {
-      icmp_packet_meta.payload      = (icmp_buffer_t*) &ipv4_payload->buffer[2];
-      icmp_packet_meta.payload_size = (ipv4_payload->size-8);
+      icmp_packet_meta.payload      = (icmp_buffer_t*) &ipv4_payload->buffer[ICMP_PAYLOAD_OFFSET_WORDS];
+      icmp_packet_meta.payload_size = (ipv4_payload->size-ICMP_HEADER_SIZE_BYTES);
     }
   }
   else
@@ -214,10 +235,10 @@ size_t encode_icmp_packet(const icmp_packet_meta_s* icmp_packet_meta, icmp_buffe
       }
       if(tmp_size == sizeof(uint8_t))
       {
-        computed_checksum += (ntohs(checksum_buffer[checksum_iterator]) & 0xFF00);
+        computed_checksum += (ntohs(checksum_buffer[checksum_iterator]) & IPV4_HALF_WORD_MASK_H);
         checksum_iterator++;
       }
-      computed_checksum = ~((computed_checksum & 0xFFFF) + (computed_checksum>>16));
+      computed_checksum = ~((computed_checksum & IPV4_HALF_WORD_MASK) + (computed_checksum>>IPV4_HALF_WORD_BITS));
       *checksum_ptr = htons(computed_checksum);
     }
     else

@@ -3,6 +3,10 @@
 
 #include "ipv4.hpp"
 
+#define ICMP_HEADER_SIZE_IPV4_WORDS 2
+#define ICMP_HEADER_SIZE_BYTES      (sizeof(ipv4_word_t)*ICMP_HEADER_SIZE_IPV4_WORDS)
+#define ICMP_PAYLOAD_OFFSET_WORDS   ICMP_HEADER_SIZE_IPV4_WORDS
+
 typedef enum
 {
   ICMP_TYPE_ECHO_REPLY                = 0,

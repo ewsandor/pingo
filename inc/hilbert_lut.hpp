@@ -12,11 +12,21 @@ namespace sandor_laboratories
     #define MAX_COORDINATE_LUT_MAX 17
     extern const hilbert_coordinate_t max_coordinate_lut[MAX_COORDINATE_LUT_MAX];
 
-    extern const hilbert_coordinate_s hilbert_coordinate_order_1[4];
-    extern const hilbert_coordinate_s hilbert_coordinate_order_2[16];
-    extern const hilbert_coordinate_s hilbert_coordinate_order_3[64];
-    extern const hilbert_coordinate_s hilbert_coordinate_order_4[256];
-    extern const hilbert_coordinate_s hilbert_coordinate_order_8[65536];
+    #define HILBERT_COORDINATE_ORDER_1           1
+    #define HILBERT_COORDINATE_ORDER_1_MAX_INDEX 4
+    extern const hilbert_coordinate_s hilbert_coordinate_order_1[HILBERT_COORDINATE_ORDER_1_MAX_INDEX];
+    #define HILBERT_COORDINATE_ORDER_2           2
+    #define HILBERT_COORDINATE_ORDER_2_MAX_INDEX 16
+    extern const hilbert_coordinate_s hilbert_coordinate_order_2[HILBERT_COORDINATE_ORDER_2_MAX_INDEX];
+    #define HILBERT_COORDINATE_ORDER_3           3
+    #define HILBERT_COORDINATE_ORDER_3_MAX_INDEX 64
+    extern const hilbert_coordinate_s hilbert_coordinate_order_3[HILBERT_COORDINATE_ORDER_3_MAX_INDEX];
+    #define HILBERT_COORDINATE_ORDER_4           4
+    #define HILBERT_COORDINATE_ORDER_4_MAX_INDEX 256
+    extern const hilbert_coordinate_s hilbert_coordinate_order_4[HILBERT_COORDINATE_ORDER_4_MAX_INDEX];
+    #define HILBERT_COORDINATE_ORDER_8           8
+    #define HILBERT_COORDINATE_ORDER_8_MAX_INDEX 65536
+    extern const hilbert_coordinate_s hilbert_coordinate_order_8[HILBERT_COORDINATE_ORDER_8_MAX_INDEX];
   }
 }
 

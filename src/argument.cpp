@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
@@ -30,165 +31,197 @@ const char * sandor_laboratories::pingo::get_help_string()
   return help_string;
 }
 
+inline void parse_cooldown_option(pingo_arguments_s* args)
+{
+  char dummy;
+  assert(args != nullptr);
+
+  if((sscanf(optarg, "%u%c", &args->ping_block_args.cooldown, &dummy) == 1))
+  {
+    args->ping_block_args.cooldown_status = PINGO_ARGUMENT_VALID;
+  }
+  else
+  {
+    args->ping_block_args.cooldown_status = PINGO_ARGUMENT_INVALID;
+    fprintf(stderr, "-s %s: ping block cooldown format incorrect.  Expected ms as decimal integer.\n\n", optarg);
+    args->unexpected_arg = true;
+  }
+}
+
+inline bool parse_option(const int option, pingo_arguments_s* args)
+{
+  bool ret_val = true;
+
+  assert(args != nullptr);
+
+  switch(option)
+  {
+    case 'a':
+    {
+      args->image_args.hilbert_image_author_status = PINGO_ARGUMENT_VALID;
+      strncpy(args->image_args.hilbert_image_author, optarg, sizeof(args->image_args.hilbert_image_author));
+      break;
+    }
+    case 'c':
+    {
+      parse_cooldown_option(args);
+      break;
+    }
+    case 'D':
+    {
+      char dummy;
+      if( (sscanf(optarg, "%u%c", &args->image_args.pixel_depth, &dummy) == 1) &&
+          ( (args->image_args.pixel_depth == BITS_1) ||
+            (args->image_args.pixel_depth == BITS_2) ||
+            (args->image_args.pixel_depth == BITS_4) ||
+            (args->image_args.pixel_depth == BITS_8) )  )
+      {
+        args->image_args.pixel_depth_status = PINGO_ARGUMENT_VALID;
+      }
+      else
+      {
+        args->image_args.pixel_depth_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-D %s: Pixel depth format incorrect.  Expected decimal integer 1,2,4, or 8.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+
+      break;
+    }
+    case 'd':
+    {
+      args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
+      strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
+      break;
+    }
+    case 'e':
+    {
+      args->ping_block_args.exclude_list_status = PINGO_ARGUMENT_VALID;
+      strncpy(args->ping_block_args.exclude_list_path, optarg, sizeof(args->ping_block_args.exclude_list_path));
+      break;
+    }
+    case 'H':
+    {
+      char dummy;
+      if( (sscanf(optarg, "%u%c", &args->image_args.hilbert_image_order, &dummy) == 1) &&
+          (args->image_args.hilbert_image_order >   0) &&
+          (args->image_args.hilbert_image_order <= HILBERT_ORDER_FOR_32_BITS) )
+      {
+        args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_VALID;
+      }
+      else
+      {
+        args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-H %s: Hilbert Curve order format incorrect.  Expected order as unsigned decimal integer <= 16.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+
+      break;
+    }
+    case 'h':
+    {
+      args->help_request = PINGO_ARGUMENT_VALID;
+      break;
+    }
+    case 'i':
+    {
+      uint8_t ip_a;
+      uint8_t ip_b;
+      uint8_t ip_c;
+      uint8_t ip_d;
+
+      char dummy;
+      if(sscanf(optarg, "%hhu.%hhu.%hhu.%hhu%c", &ip_a, &ip_b, &ip_c, &ip_d, &dummy) == 4)
+      {
+        args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_VALID;
+        args->ping_block_args.initial_ip = (ip_a<<IP_BYTE_A_OFFSET) | (ip_b<<IP_BYTE_B_OFFSET) | (ip_c<<IP_BYTE_C_OFFSET) | (ip_d);
+      }
+      else
+      {
+        args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-i %s: initial IP address format incorrect.  Expected IP in decimal format \'###.###.###.###\'.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+      break;
+    }
+    case 'r':
+    {
+      char dummy;
+      if((sscanf(optarg, "%u%c", &args->image_args.reserved_colors, &dummy) == 1))
+      {
+        args->image_args.reserved_color_status = PINGO_ARGUMENT_VALID;
+      }
+      else
+      {
+        args->image_args.reserved_color_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-r %s: Reserved color format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+      break;
+    }
+      case 's':
+    {
+      char dummy;
+      if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &dummy) == 1))
+      {
+        args->ping_block_args.address_length_status = PINGO_ARGUMENT_VALID;
+      }
+      else
+      {
+        args->ping_block_args.address_length_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-s %s: ping block size format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+      break;
+    }
+    case 't':
+    {
+      char dummy;
+      if((sscanf(optarg, "%u%c", &args->writer_args.soak_timeout, &dummy) == 1))
+      {
+        args->writer_args.soak_timeout_status = PINGO_ARGUMENT_VALID;
+      }
+      else
+      {
+        args->writer_args.soak_timeout_status = PINGO_ARGUMENT_INVALID;
+        fprintf(stderr, "-t %s: soak timeout format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
+        args->unexpected_arg = true;
+      }
+      break;
+    }
+    case 'v':
+    {
+      args->validate_status = PINGO_ARGUMENT_VALID;
+      break;
+    }
+    case '?':
+    {
+      args->unexpected_arg = true;
+      break;
+    }
+    default:
+    {
+      ret_val = false;
+      break;
+    }
+  }
+
+  return ret_val;
+}
+
 bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_arguments_s* args)
 {
   bool ret_val = true;
-  char o,c;
+  int option;
 
   if(args != nullptr)
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((o = getopt(argc, argv, "a:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
+    while((option = getopt(argc, argv, "a:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
     {
-      switch(o)
+      if(!parse_option(option, args))
       {
-        case 'a':
-        {
-          args->image_args.hilbert_image_author_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->image_args.hilbert_image_author, optarg, sizeof(args->image_args.hilbert_image_author));
-          break;
-        }
-        case 'c':
-        {
-          if((sscanf(optarg, "%u%c", &args->ping_block_args.cooldown, &c) == 1))
-          {
-            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->ping_block_args.cooldown_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-s %s: ping block cooldown format incorrect.  Expected ms as decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 'D':
-        {
-          if( (sscanf(optarg, "%u%c", &args->image_args.pixel_depth, &c) == 1) &&
-              ( (args->image_args.pixel_depth == 1) ||
-                (args->image_args.pixel_depth == 2) ||
-                (args->image_args.pixel_depth == 4) ||
-                (args->image_args.pixel_depth == 8) )  )
-          {
-            args->image_args.pixel_depth_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->image_args.pixel_depth_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-D %s: Pixel depth format incorrect.  Expected decimal integer 1,2,4, or 8.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-
-          break;
-        }
-        case 'd':
-        {
-          args->writer_args.directory_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->writer_args.directory, optarg, sizeof(args->writer_args.directory));
-          break;
-        }
-        case 'e':
-        {
-          args->ping_block_args.exclude_list_status = PINGO_ARGUMENT_VALID;
-          strncpy(args->ping_block_args.exclude_list_path, optarg, sizeof(args->ping_block_args.exclude_list_path));
-          break;
-        }
-        case 'H':
-        {
-          if( (sscanf(optarg, "%u%c", &args->image_args.hilbert_image_order, &c) == 1) &&
-              (args->image_args.hilbert_image_order >   0) &&
-              (args->image_args.hilbert_image_order <= 16) )
-          {
-            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->image_args.hilbert_image_order_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-H %s: Hilbert Curve order format incorrect.  Expected order as unsigned decimal integer <= 16.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-
-          break;
-        }
-        case 'h':
-        {
-          args->help_request = PINGO_ARGUMENT_VALID;
-          break;
-        }
-        case 'i':
-        {
-          uint8_t ip_a, ip_b, ip_c, ip_d;
-          if(sscanf(optarg, "%hhu.%hhu.%hhu.%hhu%c", &ip_a, &ip_b, &ip_c, &ip_d, &c) == 4)
-          {
-            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_VALID;
-            args->ping_block_args.initial_ip = (ip_a<<24) | (ip_b<<16) | (ip_c<<8) | (ip_d);
-          }
-          else
-          {
-            args->ping_block_args.initial_ip_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-i %s: initial IP address format incorrect.  Expected IP in decimal format \'###.###.###.###\'.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 'r':
-        {
-          if((sscanf(optarg, "%u%c", &args->image_args.reserved_colors, &c) == 1))
-          {
-            args->image_args.reserved_color_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->image_args.reserved_color_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-r %s: Reserved color format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-         case 's':
-        {
-          if((sscanf(optarg, "%u%c", &args->ping_block_args.address_length, &c) == 1))
-          {
-            args->ping_block_args.address_length_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->ping_block_args.address_length_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-s %s: ping block size format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 't':
-        {
-          if((sscanf(optarg, "%u%c", &args->writer_args.soak_timeout, &c) == 1))
-          {
-            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_VALID;
-          }
-          else
-          {
-            args->writer_args.soak_timeout_status = PINGO_ARGUMENT_INVALID;
-            fprintf(stderr, "-t %s: soak timeout format incorrect.  Expected unsigned decimal integer.\n\n", optarg);
-            args->unexpected_arg = true;
-          }
-          break;
-        }
-        case 'v':
-        {
-          args->validate_status = PINGO_ARGUMENT_VALID;
-          break;
-        }
-        case '?':
-        {
-          args->unexpected_arg = true;
-          break;
-        }
-        default:
-        {
-          ret_val = false;
-          break;
-        }
+        ret_val = false;
       }
     }
   }

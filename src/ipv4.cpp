@@ -7,7 +7,6 @@
 bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv4_header_s * output_header)
 {
   bool          ret_val = true;
-  unsigned int  i;
   uint_fast32_t computed_checksum = 0;
   ipv4_word_t   host_word;
 
@@ -16,8 +15,9 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     memset(output_header, 0, sizeof(ipv4_header_s));
   }
   
-  if((buffer != nullptr) && (output_header != nullptr) && (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size) >= 5))
+  if((buffer != nullptr) && (output_header != nullptr) && (BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size) >= IPV4_HEADER_FIXED_SIZE_WORDS))
   {
+    // NOLINTBEGIN(readability-magic-numbers)
     host_word = ntohl(buffer[0]);
     computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
     output_header->version         = (host_word>>28);
@@ -41,14 +41,15 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     host_word = ntohl(buffer[4]);
     computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
     output_header->dest_ip         = host_word;
+    // NOLINTEND(readability-magic-numbers)
 
-    for(i = 5; i < output_header->ihl; i++)
+    for(unsigned int i = IPV4_HEADER_FIXED_SIZE_WORDS; i < output_header->ihl; i++)
     {
       if(i < BYTE_SIZE_TO_IPV4_WORD_SIZE(buffer_size))
       {
         host_word = ntohl(buffer[i]);
-        computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
-        output_header->options[(i-5)] = host_word;
+        computed_checksum += (host_word & IPV4_HALF_WORD_MASK) + (host_word>>IPV4_HALF_WORD_BITS);
+        output_header->options[(i-IPV4_HEADER_FIXED_SIZE_WORDS)] = host_word;
       }
       else
       {
@@ -59,8 +60,8 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
       }
     }
 
-    if( (output_header->version != 4) ||
-        (output_header->ihl < 5) || 
+    if( (output_header->version != IPV4_VERSION) ||
+        (output_header->ihl < IPV4_HEADER_FIXED_SIZE_WORDS) || 
         (output_header->total_length < IPV4_WORD_SIZE_TO_BYTE_SIZE(output_header->ihl)))
     {
       fprintf(stderr, "Unexpected IPv4 header version %u ihl %u or total_length %u\n",
@@ -69,9 +70,9 @@ bool parse_ipv4_header(const ipv4_word_t * buffer, const size_t buffer_size, ipv
     }
     else
     {
-      computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
+      computed_checksum = (computed_checksum & IPV4_HALF_WORD_MASK) + (computed_checksum>>IPV4_HALF_WORD_BITS);
 
-      if(0xFFFF != computed_checksum)
+      if(IPV4_HALF_WORD_MASK != computed_checksum)
       {
         fprintf(stderr, "IPv4 checksum failed. computed_checksum 0x%lx\n", computed_checksum);
         ret_val = false;
@@ -127,7 +128,6 @@ ipv4_word_size_t get_ipv4_header_size(const ipv4_header_s* ipv4_header)
 
 size_t encode_ipv4_packet(const ipv4_packet_meta_s* packet_meta, ipv4_word_t * buffer, size_t buffer_size)
 {
-  unsigned int  i;
   size_t        output_size = 0;
   uint_fast32_t computed_checksum = 0;
   ipv4_word_t   host_word;
@@ -137,10 +137,11 @@ size_t encode_ipv4_packet(const ipv4_packet_meta_s* packet_meta, ipv4_word_t * b
     output_size = (packet_meta->header.total_length);
 
     if( packet_meta->header_valid &&
-        (packet_meta->header.ihl >= 5) && 
+        (packet_meta->header.ihl >= IPV4_HEADER_FIXED_SIZE_WORDS) && 
         ((packet_meta->header.ihl*sizeof(ipv4_word_size_t)) <= packet_meta->header.total_length) &&
         (packet_meta->header.total_length <= buffer_size))
     {
+      // NOLINTBEGIN(readability-magic-numbers)
       host_word  = (packet_meta->header.version      << 28);
       host_word |= (packet_meta->header.ihl          << 24);
       host_word |= (packet_meta->header.dscp         << 18);
@@ -167,17 +168,20 @@ size_t encode_ipv4_packet(const ipv4_packet_meta_s* packet_meta, ipv4_word_t * b
       host_word  = (packet_meta->header.dest_ip);
       buffer[4] = htonl(host_word);
       computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
+      // NOLINTEND(readability-magic-numbers)
   
-      for(i = 5; i < packet_meta->header.ihl; i++)
+      for(unsigned int i = IPV4_HEADER_FIXED_SIZE_WORDS; i < packet_meta->header.ihl; i++)
       {
-        host_word = packet_meta->header.options[(i-5)];
+        host_word = packet_meta->header.options[(i-IPV4_HEADER_FIXED_SIZE_WORDS)];
         buffer[i] = htonl(host_word);
-        computed_checksum += (host_word & 0xFFFF) + (host_word>>16);
+        computed_checksum += (host_word & IPV4_HALF_WORD_MASK) + (host_word>>IPV4_HALF_WORD_BITS);
       }
 
+      // NOLINTBEGIN(readability-magic-numbers)
       computed_checksum = (computed_checksum & 0xFFFF) + (computed_checksum>>16);
       host_word = ntohl(buffer[2]) | (computed_checksum & 0xFFFF);
       buffer[2] = htonl(host_word);
+      // NOLINTEND(readability-magic-numbers)
 
       memcpy(&buffer[packet_meta->header.ihl], packet_meta->payload.buffer, 
              (packet_meta->header.total_length - (packet_meta->header.ihl*sizeof(ipv4_word_size_t))));

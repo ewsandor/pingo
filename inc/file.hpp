@@ -151,6 +151,7 @@ namespace sandor_laboratories
         EVP_MD_CTX                    *mdctx;
         std::vector<registry_entry_s>  registry;
         
+        static bool read_remaining_file   (const char * file_path, FILE * file_ptr, file_s* output_file, bool skip_data);
         static bool file_header_valid     (const file_s*);
         static bool file_data_valid       (const file_s*);
         static bool read_file_header      (FILE *, file_s*);
