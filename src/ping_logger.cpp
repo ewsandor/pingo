@@ -158,7 +158,7 @@ void ping_logger_c::process_echo_reply_log_entry(ping_log_entry_s *log_entry)
       (PING_LOG_ENTRY_ECHO_REPLY==log_entry->header.type) && 
       (timespec_valid(&log_entry->data.echo_reply.reply_delay)))
   {
-    reply_delay = TIMESPEC_TO_MS(log_entry->data.echo_reply.reply_delay);
+    reply_delay = (uint_fast32_t) TIMESPEC_TO_MS(log_entry->data.echo_reply.reply_delay);
 
     lock_ping_block();
     if(!ping_block_queue.empty())
