@@ -39,6 +39,7 @@ build-debian:
   stage: build
   image: debian:latest
   tags:
+    - docker
     - x86_64
   script:
     - *apt_dependencies
@@ -51,6 +52,7 @@ build-debian-arm64:
   stage: build
   image: debian:latest
   tags:
+    - docker
     - arm64
   script:
     - *apt_dependencies
@@ -87,4 +89,5 @@ include:
 
 sast:
   tags:
+  - docker
   - x86_64
