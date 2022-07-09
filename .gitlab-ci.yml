@@ -84,3 +84,8 @@ build-fedora:
 
 include:
   - template: Security/SAST.gitlab-ci.yml
+
+.sast-tag:
+  extends: sast
+  tags:
+  - x86_64
