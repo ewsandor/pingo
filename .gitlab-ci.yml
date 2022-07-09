@@ -18,6 +18,7 @@ default:
 
 stages:          # List of stages for jobs, and their order of execution
   - build
+  - test
 
 .apt_dependencies: &apt_dependencies
   - echo "Installing dependencies..."
@@ -80,3 +81,6 @@ build-fedora:
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
