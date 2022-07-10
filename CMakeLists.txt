@@ -5,7 +5,7 @@ project(Pingo
         LANGUAGES CXX
         HOMEPAGE_URL "https://git.sandorlaboratories.com/edward/pingo")
 
-set(PROJECT_VERSION 0.2.2)
+set(PROJECT_VERSION 0.2.3-dev)
 
 find_program (CLANG_TIDY clang-tidy)
 if(CLANG_TIDY)
