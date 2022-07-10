@@ -18,6 +18,7 @@ default:
 
 stages:          # List of stages for jobs, and their order of execution
   - build
+  - test
 
 .apt_dependencies: &apt_dependencies
   - echo "Installing dependencies..."
@@ -37,6 +38,22 @@ stages:          # List of stages for jobs, and their order of execution
 build-debian:
   stage: build
   image: debian:latest
+  tags:
+    - docker
+    - x86_64
+  script:
+    - *apt_dependencies
+    - *build_step
+  artifacts:
+    paths:
+      - /builds/edward/pingo/build/pingo
+
+build-debian-arm64:
+  stage: build
+  image: debian:latest
+  tags:
+    - docker
+    - arm64
   script:
     - *apt_dependencies
     - *build_step
@@ -66,3 +83,11 @@ build-fedora:
   artifacts:
     paths:
       - /builds/edward/pingo/build/pingo
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
+sast:
+  tags:
+  - docker
+  - x86_64
