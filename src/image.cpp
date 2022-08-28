@@ -5,6 +5,7 @@
 #include <png.h>
 
 #include "file.hpp"
+#include "graphic.hpp"
 #include "hilbert.hpp"
 #include "image.hpp"
 #include "pingo.hpp"
