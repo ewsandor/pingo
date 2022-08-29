@@ -11,6 +11,7 @@ using namespace sandor_laboratories::pingo;
 static const char *help_string = PROJECT_NAME " " PROJECT_VER " <" PROJECT_URL ">\n"
                                  PROJECT_DESCRIPTION "\n\n"
                                  "Options:\n"
+                                 "  -A: Annotate PNG with 256 Hilbert curve labels\n"
                                  "  -a: Author name to embed in PNG metadata\n"
                                  "  -c: Cooldown time in milliseconds between ping block batches\n"
                                  "  -D: Pixel depth used for creating PNG (1, 2, 4, or 8)\n"
@@ -56,6 +57,11 @@ inline bool parse_option(const int option, pingo_arguments_s* args)
 
   switch(option)
   {
+    case 'A':
+    {
+      args->image_args.annotate_status = PINGO_ARGUMENT_VALID;
+      break;
+    }
     case 'a':
     {
       args->image_args.hilbert_image_author_status = PINGO_ARGUMENT_VALID;
@@ -217,7 +223,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((option = getopt(argc, argv, "a:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
+    while((option = getopt(argc, argv, "Aa:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
     {
       if(!parse_option(option, args))
       {

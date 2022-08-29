@@ -37,7 +37,7 @@ namespace sandor_laboratories
       grayscale_t rbg_to_grayscale(const rgb_s* rgb);
       inline grayscale_t rbg_to_grayscale(rgb_s rgb) {return rbg_to_grayscale(&rgb);};
 
-      bool get_rgb_at_coordinate(const graphic_s *graphic, const coordinate_s *coordinate, rgb_s *output_rgb);
+      bool get_rgb_at_coordinate(const graphic_s *graphic, coordinate_t x, coordinate_t y, rgb_s *output_rgb);
 
       const graphic_s *get_graphic_for_digit(uint_fast8_t digit);
     }

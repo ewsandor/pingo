@@ -5,7 +5,7 @@
 
 using namespace sandor_laboratories::pingo::graphic;
 
-grayscale_t rbg_to_grayscale(const rgb_s* rgb)
+grayscale_t sandor_laboratories::pingo::graphic::rbg_to_grayscale(const rgb_s* rgb)
 {
   const unsigned int channel_total = (((unsigned int) rgb->red  ) + 
                                       ((unsigned int) rgb->green) + 
@@ -14,16 +14,16 @@ grayscale_t rbg_to_grayscale(const rgb_s* rgb)
   return ((channel_total / 3) & 0xFF);
 }
 
-bool get_rgb_at_coordinate(const graphic_s *graphic, const coordinate_s *coordinate, rgb_s *output_rgb)
+bool sandor_laboratories::pingo::graphic::get_rgb_at_coordinate(const graphic_s *graphic, coordinate_t x, coordinate_t y, rgb_s *output_rgb)
 {
   bool ret_val = true;
 
-  if(graphic && coordinate && output_rgb)
+  if(graphic && output_rgb)
   {
-    if((coordinate->x < graphic->width) && (coordinate->y < graphic->height))
+    if((x < graphic->width) && (y < graphic->height))
     {
       memset(output_rgb, 0, sizeof(rgb_s));
-      unsigned int pixel_index = (coordinate->y*graphic->width*GRAPHIC_RGB_SIZE_BYTES)+(coordinate->x*GRAPHIC_RGB_SIZE_BYTES);
+      unsigned int pixel_index = (y*graphic->width*GRAPHIC_RGB_SIZE_BYTES)+(x*GRAPHIC_RGB_SIZE_BYTES);
       output_rgb->red   = graphic->data[pixel_index];
       output_rgb->green = graphic->data[pixel_index+1];
       output_rgb->blue  = graphic->data[pixel_index+2];
@@ -31,14 +31,14 @@ bool get_rgb_at_coordinate(const graphic_s *graphic, const coordinate_s *coordin
     else
     {
       fprintf(stderr, "Coordinate out of bound of graphic.  x %u y %u width %u height %u\n", 
-        coordinate->x, coordinate->y, graphic->width, graphic->height);
+        x, y, graphic->width, graphic->height);
       ret_val = false;
     }
   }
   else
   {
-    fprintf(stderr, "Null input to get_rgb_at_coordinate.  graphic %p coordinate %p output_rgb %p\n", 
-      graphic, coordinate, output_rgb);
+    fprintf(stderr, "Null input to get_rgb_at_coordinate.  graphic %p output_rgb %p\n", 
+      graphic, output_rgb);
     ret_val = false;
   }
 
@@ -73,7 +73,7 @@ graphic_s graphic_digit[] =
   {.width = graphic_digit_9.width, .height = graphic_digit_9.height, .data = graphic_digit_9.pixel_data},
 };
 
-const graphic_s *get_graphic_for_digit(uint_fast8_t digit)
+const graphic_s *sandor_laboratories::pingo::graphic::get_graphic_for_digit(uint_fast8_t digit)
 {
   const graphic_s * ret_ptr = nullptr;
 

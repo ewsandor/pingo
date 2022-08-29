@@ -21,6 +21,7 @@ namespace sandor_laboratories
     #define IMAGE_STRING_BUFFER_SIZE 1024
     typedef struct
     {
+      pingo_argument_status_e annotate_status;
       pingo_argument_status_e pixel_depth_status;
       uint32_t                pixel_depth;
       pingo_argument_status_e reserved_color_status;

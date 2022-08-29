@@ -656,9 +656,10 @@ int main(int argc, char *argv[])
     char ip_string_buffer[IP_STRING_SIZE];
     ip_string(png_config.initial_ip, ip_string_buffer, sizeof(ip_string_buffer), '_', true);
     snprintf(png_config.image_file_path, sizeof(png_config.image_file_path), 
-            "%s_hilbert_%02u_color_depth_%u_timeout_%03u_reserved_%03u.png", 
+            "%s_hilbert_%02u_color_depth_%u_timeout_%03u_reserved_%03u%s.png", 
             ip_string_buffer, png_config.image_args.hilbert_image_order, png_config.color_depth,
-            MS_TO_SECONDS(png_config.depth_scale_reference), png_config.reserved_colors);
+            MS_TO_SECONDS(png_config.depth_scale_reference), png_config.reserved_colors,
+            (PINGO_ARGUMENT_VALID == png_config.image_args.annotate_status)?"_annotated":"");
 
     printf("Scanning data files. \n"); 
     file_manager->build_registry();

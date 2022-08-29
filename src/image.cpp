@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <png.h>
+#include <stack>
 
 #include "file.hpp"
 #include "graphic.hpp"
@@ -21,6 +22,84 @@ typedef struct
   
 } hilbert_image_from_file_params_s;
 
+inline void set_image_pixel(png_bytepp row_pointers, unsigned int color_depth, unsigned int width, unsigned int x, unsigned int y, unsigned int value)
+{
+  const unsigned int  pixels_per_byte  = (8/color_depth);
+  const png_bytep     row_pointer      =  row_pointers[y];
+  const unsigned int  pixel_depth_mask = ((1<<color_depth)-1);
+  png_byte           *column_pointer   = &row_pointer[(x%(width))/pixels_per_byte];
+
+  *column_pointer |= ((value & pixel_depth_mask) << ((x%pixels_per_byte)*color_depth));
+}
+
+inline void draw_digit_on_image(const hilbert_image_from_file_params_s * image_params, uint_fast8_t digit, unsigned int x_offset, unsigned int y_offset, unsigned int scale)
+{
+  assert(scale > 0);
+  assert(digit < 10);
+  const graphic::graphic_s * digit_graphic = graphic::get_graphic_for_digit(digit);
+  unsigned int i,j;
+
+  for(i = 0; i < digit_graphic->width/scale; i++)
+  {
+    for(j = 0; j < digit_graphic->height/scale; j++)
+    {
+      graphic::rgb_s rgb;
+      graphic::get_rgb_at_coordinate(digit_graphic, i*scale, j*scale, &rgb);
+      graphic::grayscale_t grayscale_value = graphic::rbg_to_grayscale(rgb);
+
+      if(grayscale_value > 0)
+      {
+        set_image_pixel(image_params->row_pointers, 
+                        image_params->png_config->color_depth, 
+                        image_params->hilbert_curve->max_coordinate(), x_offset+i, y_offset+j,
+                        ((1 << image_params->png_config->color_depth) - 1));
+      }
+    }
+  }
+}
+
+inline void draw_number_on_image(const hilbert_image_from_file_params_s * image_params, unsigned int number, unsigned int x_offset, unsigned int y_offset, unsigned int scale = 1, uint_fast8_t min_digits = 1)
+{
+  std::stack<uint_fast8_t> digit_stack;
+
+  unsigned int number_temp = number;
+  while(number_temp)
+  {
+    digit_stack.push(number_temp % 10);
+    number_temp /= 10;
+  }
+
+  while(digit_stack.size() < min_digits)
+  {
+    digit_stack.push(0);
+  }
+ 
+  while(!digit_stack.empty())
+  {
+    uint_fast8_t digit = digit_stack.top();
+    draw_digit_on_image(image_params, digit, x_offset, y_offset, scale);
+    const graphic::graphic_s * digit_graphic = graphic::get_graphic_for_digit(digit);
+    x_offset += (digit_graphic->width/scale);
+    digit_stack.pop();
+  }
+}
+
+inline void annotate_hilbert_image(const hilbert_image_from_file_params_s * image_params)
+{
+  unsigned int i = 0;
+  hilbert_curve_c hilbert_curve_4(4);
+  hilbert_curve_c hilbert_curve_16(16);
+  for(i = 0; i < hilbert_curve_4.max_index(); i++)
+  {
+    hilbert_coordinate_s coordinate;
+    hilbert_curve_4.get_coordinate(i, &coordinate);
+    draw_number_on_image( image_params, i, 
+                          (coordinate.x*image_params->hilbert_curve->max_coordinate())/16, 
+                          (coordinate.y*image_params->hilbert_curve->max_coordinate())/16,
+                          hilbert_curve_16.max_coordinate()/image_params->hilbert_curve->max_coordinate());
+  }
+}
+
 void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr)
 {
   assert(file);
@@ -36,7 +115,6 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
   const hilbert_coordinate_t max_coordinate   = params->hilbert_curve->max_coordinate();
   const uint_fast64_t        last_ip          = ((uint_fast64_t)params->png_config->initial_ip) + max_index;
   const uint_fast64_t        file_last_ip     = file->header.first_address + file->header.address_count;
-  const unsigned int         pixels_per_byte  = (8/params->png_config->color_depth);
   const unsigned int         pixel_depth_mask = ((1<<params->png_config->color_depth)-1);
   const unsigned int         max_value        = (pixel_depth_mask - params->png_config->reserved_colors);
 
@@ -49,16 +127,12 @@ void fill_hilbert_image_from_file(const file_s* file, const void * user_data_ptr
       hilbert_coordinate_s  coordinate;
       assert(params->hilbert_curve->get_coordinate(hilbert_index, &coordinate));
 
-      const png_bytep  row_pointer    =  params->row_pointers[coordinate.y];
-      png_byte        *column_pointer = &row_pointer[(coordinate.x%(max_coordinate))/pixels_per_byte];
-
       unsigned int value = 1;
       if(file_data_entry->payload.echo_reply.reply_time < params->png_config->depth_scale_reference)
       {
         value = max_value - ((file_data_entry->payload.echo_reply.reply_time * max_value)/params->png_config->depth_scale_reference);
       }
-
-      *column_pointer |= ((value & pixel_depth_mask) << ((coordinate.x%pixels_per_byte)*params->png_config->color_depth));
+      set_image_pixel(params->row_pointers, params->png_config->color_depth, max_coordinate, coordinate.x, coordinate.y, value);
     }
   }
 }
@@ -156,9 +230,9 @@ void fill_png_palette(const png_config_s* png_config)
     }
     else
     {
-      palette[i].red   = (0 == (i%3))?COLOR_8_BIT_MAX:0;
-      palette[i].green = (1 == (i%3))?COLOR_8_BIT_MAX:0;
-      palette[i].blue  = (2 == (i%3))?COLOR_8_BIT_MAX:0;
+      palette[i].red   = (2 == (i%3))?COLOR_8_BIT_MAX:0;
+      palette[i].green = (0 == (i%3))?COLOR_8_BIT_MAX:0;
+      palette[i].blue  = (1 == (i%3))?COLOR_8_BIT_MAX:0;
     }
   }
   png_set_PLTE(png_ptr,png_info_ptr, palette, (1 << png_config->color_depth));
@@ -364,6 +438,12 @@ void sandor_laboratories::pingo::generate_png_image(const png_config_s* png_conf
       png_config->file_manager->iterate_file_registry(fill_hilbert_image_from_file, 
                                                      &hilbert_image_from_file_params, 
                                                       png_config->initial_ip, hilbert_curve.max_index()) ;
+
+      if(PINGO_ARGUMENT_VALID == png_config->image_args.annotate_status)
+      {
+        printf("Annotating image.\n");
+        annotate_hilbert_image(&hilbert_image_from_file_params);
+      }
 
       printf("Opening file %s for writing.\n", png_config->image_file_path);
       assert(nullptr == file_ptr);
