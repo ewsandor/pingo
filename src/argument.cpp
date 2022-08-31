@@ -223,7 +223,7 @@ bool sandor_laboratories::pingo::parse_pingo_args(int argc, char *argv[], pingo_
   {
     memset(args, 0, sizeof(pingo_arguments_s));
 
-    while((option = getopt(argc, argv, "Aa:c:D:d:e:H:hi:r:s:t:v")) != ((char) -1))
+    while((option = getopt(argc, argv, "Aa:c:D:d:e:H:hi:r:s:t:v")) !=  -1)
     {
       if(!parse_option(option, args))
       {
